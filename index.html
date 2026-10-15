@@ -50,17 +50,31 @@ const firebaseConfig = {
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 </script>
-          <div id="loginScreen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950" style="background:linear-gradient(135deg,#0f172a,#1e3a5f 55%,#0f172a)">
+          <div id="loginScreen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:linear-gradient(135deg,#0f172a,#1e3a5f 55%,#0f172a)">
             <div class="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
               <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-900 text-white text-3xl">🏭</div>
               <p class="text-xs font-semibold tracking-[.25em] text-blue-700">ROUTER ROOM</p>
               <h1 class="mt-2 text-2xl font-bold text-slate-800">ระบบรายงานปัญหาเครื่องจักร</h1>
-              <p class="mt-2 mb-6 text-sm text-slate-500">ระบบติดตามปัญหาและเวลาหยุดเครื่องจักร</p>
+              <p class="mt-2 mb-6 text-sm text-slate-500">ติดตามปัญหาและเวลาหยุดเครื่องจักร</p>
               <button type="button" id="loginButton" class="w-full rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800">เข้าสู่ระบบ</button>
               <p class="mt-4 text-xs text-slate-400">ไม่ต้องกรอกชื่อผู้ใช้หรือรหัสผ่าน</p>
             </div>
           </div>
-          <div id="appContent" class="hidden">
+          <div id="statusEditModal" class="modal" onclick="if(event.target===this) closeStatusEditor()">
+            <div class="modal-content p-5" onclick="event.stopPropagation()">
+              <div class="flex items-center justify-between mb-4"><h3 class="text-lg font-bold">แก้ไขรายงาน / สถานะซ่อม</h3><button type="button" onclick="closeStatusEditor()" class="text-gray-400 text-2xl">&times;</button></div>
+              <input type="hidden" id="editReportId">
+              <div class="space-y-3">
+                <div><label class="block text-sm mb-1">สถานะ</label><select id="editStatus" class="w-full border rounded-lg px-3 py-2"><option value="รอดำเนินการ">⏳ รอดำเนินการ</option><option value="กำลังแก้ไข">🔧 กำลังแก้ไข</option><option value="เสร็จสิ้น">✅ เสร็จสิ้น</option></select></div>
+                <div><label class="block text-sm mb-1">ช่างผู้รับผิดชอบ</label><input id="editTechnician" class="w-full border rounded-lg px-3 py-2" placeholder="ชื่อช่าง"></div>
+                <div><label class="block text-sm mb-1">ผลการแก้ไข / หมายเหตุ</label><textarea id="editRepairNote" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="ระบุการซ่อมและผลการทดสอบ"></textarea></div>
+                <div><label class="block text-sm mb-1">เวลาเริ่มหยุดเครื่อง</label><input type="datetime-local" id="editDowntimeStart" class="w-full border rounded-lg px-3 py-2"></div>
+                <div><label class="block text-sm mb-1">เวลาสิ้นสุด / กลับมาใช้งาน</label><input type="datetime-local" id="editDowntimeEnd" class="w-full border rounded-lg px-3 py-2"></div>
+                <p id="editDowntimePreview" class="text-sm text-blue-700 bg-blue-50 rounded p-2">ระยะเวลาหยุด: —</p>
+                <div class="flex gap-2"><button type="button" onclick="saveStatusEdit()" id="saveStatusBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2">บันทึกการแก้ไข</button><button type="button" onclick="closeStatusEditor()" class="px-4 border rounded-lg">ยกเลิก</button></div>
+              </div>
+            </div>
+          </div>
           <div id="machineModal" class="modal" onclick="if(event.target === this) closeMachineModal()">
             <div class="modal-content p-5" onclick="event.stopPropagation()">
               <div class="flex justify-between items-center mb-4">
@@ -199,9 +213,9 @@ const db = firebase.database();
                                 </div>
                               </div>
                               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
-                                <div><label class="block text-sm font-medium text-gray-700 mb-1">เวลาเริ่มหยุดเครื่อง</label><input type="datetime-local" id="downtimeStart" class="w-full px-3 py-2 border rounded-lg text-sm"><p class="text-xs text-gray-500 mt-1">เว้นว่างเพื่อใช้เวลาที่บันทึกรายงาน</p></div>
-                                <div><label class="block text-sm font-medium text-gray-700 mb-1">เวลาสิ้นสุด/กลับมาใช้งาน</label><input type="datetime-local" id="downtimeEnd" class="w-full px-3 py-2 border rounded-lg text-sm"><p class="text-xs text-gray-500 mt-1">เว้นว่างหากเครื่องยังหยุดอยู่</p></div>
-                                <div id="downtimePreview" class="md:col-span-2 text-sm font-medium text-blue-800">เวลาหยุด: —</div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">🕒 เวลาเริ่มหยุดเครื่อง</label><input type="datetime-local" id="downtimeStart" class="w-full px-3 py-2 border rounded-lg text-sm"><p class="text-xs text-gray-500 mt-1">เว้นว่างเพื่อใช้เวลาบันทึกรายงาน</p></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">🟢 เวลาสิ้นสุด / กลับมาใช้งาน</label><input type="datetime-local" id="downtimeEnd" class="w-full px-3 py-2 border rounded-lg text-sm"><p class="text-xs text-gray-500 mt-1">เว้นว่างหากยังหยุดอยู่</p></div>
+                                <div id="downtimePreview" class="md:col-span-2 text-sm text-blue-800">ระยะเวลาหยุด: —</div>
                               </div>
                               <button type="button" id="submitBtn" onclick="submitReport()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
                                 <i class="fa fa-save mr-1">
@@ -286,13 +300,12 @@ const db = firebase.database();
                                 <canvas id="chartByMachine" height="220">
                                 </canvas>
                               </div>
-                              <div class="bg-white rounded-xl shadow-sm p-4 lg:col-span-2"><h3 class="text-sm font-medium mb-2">⏱️ เวลาหยุดสะสมรายเครื่อง (Top 10 ชั่วโมง)</h3><canvas id="chartDowntime" height="240"></canvas></div>
+                              <div class="bg-white rounded-xl shadow-sm p-4 lg:col-span-2"><h3 class="text-sm font-medium mb-2">⏱️ เวลาหยุดสะสมรายเครื่อง (Top 10 ชั่วโมง)</h3><p class="text-xs text-gray-500 mb-2">รายงานที่ยังไม่สิ้นสุดจะนับถึงเวลาปัจจุบัน</p><canvas id="chartDowntime" height="240"></canvas></div>
                             </div>
                           </div>
                         </div>
                         <div id="toast" class="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm transition-all duration-300 transform translate-y-full opacity-0 z-50">
                         </div>
-                        </div><!-- /appContent -->
                         <script>
 let reports = [];
 let listener = null;
@@ -322,8 +335,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initCharts();
     initLogin();
     initDowntimeInputs();
-    document.getElementById('reportForm').addEventListener('submit', function(e){ e.preventDefault(); submitReport(); });
-    document.getElementById('btnExport').addEventListener('click', function(e){ e.preventDefault(); exportCSV(); });
+    ['editStatus','editDowntimeStart','editDowntimeEnd'].forEach(id => document.getElementById(id).addEventListener('change', refreshEditDowntimePreview));
+    document.getElementById('btnExport').addEventListener('click', exportCSV);
     document.getElementById('btnRefreshChart').addEventListener('click', updateAllCharts);
     ['filterDate','filterMachine','filterStatus'].forEach(id => document.getElementById(id).addEventListener('change', renderList));
     ['chartMonth','chartMachine'].forEach(id => document.getElementById(id).addEventListener('change', updateAllCharts));
@@ -340,43 +353,20 @@ document.addEventListener('DOMContentLoaded', function() {
 function initLogin() {
     document.getElementById('loginButton').addEventListener('click', () => {
         document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('appContent').classList.remove('hidden');
-        sessionStorage.setItem('routerRoomEntered','1');
-        renderDashboard(); renderList(); updateAllCharts();
+        showToast('เข้าสู่ระบบ ROUTER ROOM แล้ว');
     });
-    // แสดงหน้าล็อกอินทุกครั้งที่เปิดหน้าใหม่ แต่ไม่ต้องใช้รหัสผ่าน
 }
-function localDateTimeValue(date = new Date()) {
-    const pad = n => String(n).padStart(2,'0');
-    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-function parseLocalDateTime(value) { if (!value) return null; const n = new Date(value).getTime(); return Number.isFinite(n) ? n : null; }
-function formatDuration(ms) {
-    if (!Number.isFinite(ms) || ms < 0) return 'ไม่ระบุ';
-    const m = Math.floor(ms/60000), d = Math.floor(m/1440), h = Math.floor((m%1440)/60), min=m%60;
-    return `${d ? d+' วัน ' : ''}${h} ชม. ${min} นาที`;
-}
-function getDowntimeMs(r, now=Date.now()) {
-    const start = Number.isFinite(Number(r.downtimeStartMs)) && r.downtimeStartMs !== '' ? Number(r.downtimeStartMs) : parseLocalDateTime(r.downtimeStart || '');
-    if (start == null) return 0;
-    const end = Number.isFinite(Number(r.downtimeEndMs)) && r.downtimeEndMs !== '' ? Number(r.downtimeEndMs) : parseLocalDateTime(r.downtimeEnd || '');
-    return Math.max(0,(end == null ? now : end)-start);
-}
-function initDowntimeInputs() {
-    const start=document.getElementById('downtimeStart'), end=document.getElementById('downtimeEnd');
-    start.value=localDateTimeValue();
-    [start,end].forEach(el=>el.addEventListener('input', refreshDowntimePreview));
-    document.getElementById('status').addEventListener('change', refreshDowntimePreview);
-    refreshDowntimePreview();
-}
-function refreshDowntimePreview() {
-    const start=parseLocalDateTime(document.getElementById('downtimeStart').value), end=parseLocalDateTime(document.getElementById('downtimeEnd').value), box=document.getElementById('downtimePreview');
-    box.classList.remove('text-red-700');
-    if(start==null){box.textContent='เวลาหยุด: ระบบจะใช้เวลาที่บันทึกรายงาน';return;}
-    if(end!=null && end<start){box.textContent='เวลาสิ้นสุดต้องไม่ก่อนเวลาเริ่ม';box.classList.add('text-red-700');return;}
-    box.textContent='เวลาหยุดโดยประมาณ: '+formatDuration((end==null?Date.now():end)-start)+(end==null?' (กำลังนับเวลา)':'');
-}
-function escapeHTML(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function localDateTimeValue(date=new Date()) { const p=n=>String(n).padStart(2,'0'); return `${date.getFullYear()}-${p(date.getMonth()+1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}`; }
+function parseLocalDateTime(value) { if(!value) return null; const n=new Date(value).getTime(); return Number.isFinite(n)?n:null; }
+function formatDuration(ms) { if(!Number.isFinite(ms)||ms<0) return 'ไม่ระบุ'; const m=Math.floor(ms/60000),d=Math.floor(m/1440),h=Math.floor((m%1440)/60),min=m%60; return `${d?d+' วัน ':''}${h} ชม. ${min} นาที`; }
+function getDowntimeMs(r,now=Date.now()) { const st=Number.isFinite(Number(r.downtimeStartMs))&&r.downtimeStartMs!==''?Number(r.downtimeStartMs):parseLocalDateTime(r.downtimeStart||''); if(st==null)return 0; const en=Number.isFinite(Number(r.downtimeEndMs))&&r.downtimeEndMs!==''?Number(r.downtimeEndMs):parseLocalDateTime(r.downtimeEnd||''); return Math.max(0,(en==null?now:en)-st); }
+function initDowntimeInputs() { const st=document.getElementById('downtimeStart'),en=document.getElementById('downtimeEnd'); st.value=localDateTimeValue(); [st,en].forEach(el=>el.addEventListener('input',refreshDowntimePreview)); document.getElementById('status').addEventListener('change',refreshDowntimePreview); refreshDowntimePreview(); }
+function refreshDowntimePreview() { const st=parseLocalDateTime(document.getElementById('downtimeStart').value),en=parseLocalDateTime(document.getElementById('downtimeEnd').value),box=document.getElementById('downtimePreview'); box.classList.remove('text-red-700'); if(st==null){box.textContent='ระยะเวลาหยุด: จะใช้เวลาบันทึกเป็นเวลาเริ่ม';return;} if(en!=null&&en<st){box.textContent='เวลาสิ้นสุดต้องไม่ก่อนเวลาเริ่ม';box.classList.add('text-red-700');return;} box.textContent='ระยะเวลาหยุดโดยประมาณ: '+formatDuration((en==null?Date.now():en)-st)+(en==null?' (กำลังนับเวลา)':''); }
+function openStatusEditor(id) { const r=reports.find(x=>x.id===id); if(!r)return showToast('ไม่พบรายงาน'); document.getElementById('editReportId').value=id; document.getElementById('editStatus').value=r.status||'รอดำเนินการ'; document.getElementById('editTechnician').value=r.technician||''; document.getElementById('editRepairNote').value=r.repairNote||''; document.getElementById('editDowntimeStart').value=r.downtimeStart||localDateTimeValue(new Date(r.timestamp||Date.now())); document.getElementById('editDowntimeEnd').value=r.downtimeEnd||''; refreshEditDowntimePreview(); document.getElementById('statusEditModal').classList.add('show'); }
+function closeStatusEditor(){document.getElementById('statusEditModal').classList.remove('show');}
+function refreshEditDowntimePreview(){const st=parseLocalDateTime(document.getElementById('editDowntimeStart').value),en=parseLocalDateTime(document.getElementById('editDowntimeEnd').value),box=document.getElementById('editDowntimePreview');box.classList.remove('text-red-700');if(st==null){box.textContent='ระยะเวลาหยุด: ไม่ระบุ';return;}if(en!=null&&en<st){box.textContent='เวลาสิ้นสุดต้องไม่ก่อนเวลาเริ่ม';box.classList.add('text-red-700');return;}box.textContent='ระยะเวลาหยุด: '+formatDuration((en==null?Date.now():en)-st)+(en==null?' (กำลังนับเวลา)':'');}
+async function saveStatusEdit(){const id=document.getElementById('editReportId').value, status=document.getElementById('editStatus').value, technician=document.getElementById('editTechnician').value.trim()||'-', repairNote=document.getElementById('editRepairNote').value.trim(), startText=document.getElementById('editDowntimeStart').value, endText=document.getElementById('editDowntimeEnd').value;const startMs=parseLocalDateTime(startText),endMs=parseLocalDateTime(endText);if(startMs==null){showToast('กรุณาระบุเวลาเริ่มหยุดเครื่อง');return;}if(endMs!=null&&endMs<startMs){showToast('เวลาสิ้นสุดต้องไม่ก่อนเวลาเริ่ม');return;}if(status==='เสร็จสิ้น'&&endMs==null){document.getElementById('editDowntimeEnd').value=localDateTimeValue();}const finalEndText=document.getElementById('editDowntimeEnd').value,finalEndMs=parseLocalDateTime(finalEndText),btn=document.getElementById('saveStatusBtn');btn.disabled=true;btn.textContent='กำลังบันทึก...';try{await db.ref('machineReports/'+id).update({status,technician,repairNote,downtimeStart:startText,downtimeStartMs:startMs,downtimeEnd:finalEndText,downtimeEndMs:finalEndMs==null?'':finalEndMs,statusUpdatedAt:new Date().toISOString()});showToast('บันทึกสถานะและเวลาสำเร็จ');closeStatusEditor();}catch(e){showToast('บันทึกไม่สำเร็จ: '+e.message);}finally{btn.disabled=false;btn.textContent='บันทึกการแก้ไข';}}
+['editStatus','editDowntimeStart','editDowntimeEnd'].forEach(id=>{document.addEventListener('DOMContentLoaded',()=>{const el=document.getElementById(id);if(el)el.addEventListener('change',refreshEditDowntimePreview);});});
 
 function initDate() {
     const now = new Date();
@@ -435,12 +425,10 @@ function initImageUpload() {
         const file = e.target.files[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) {
-            selectedImageBase64 = null; previewArea.style.display = 'none'; previewImg.src = ''; fileInput.value = '';
             showToast('❌ กรุณาเลือกไฟล์รูปภาพเท่านั้น');
             return;
         }
         if (file.size > 5 * 1024 * 1024) {
-            selectedImageBase64 = null; previewArea.style.display = 'none'; previewImg.src = ''; fileInput.value = '';
             showToast('⚠️ รูปต้องไม่เกิน 5MB ครับ');
             return;
         }
@@ -501,8 +489,8 @@ function openMachineModal(machineName) {
                     const cls = r.status==='รอดำเนินการ'?'bg-amber-50':r.status==='กำลังแก้ไข'?'bg-blue-50':'bg-green-50';
                     return `
                     <div class="p-2 rounded ${cls}">
-                        <div class="font-medium">${escapeHTML(r.problemType)}</div>
-                        <div class="text-xs text-gray-500">${r.date} ${r.time} | ${escapeHTML(r.reporter)}</div>
+                        <div class="font-medium">${r.problemType}</div>
+                        <div class="text-xs text-gray-500">${r.date} ${r.time} | ${r.reporter}</div>
                         <div class="text-xs mt-1">${r.problemDetail}</div>
                         ${r.imageData ? `<img src="${r.imageData}" class="mt-2 max-w-[80px] rounded cursor-pointer" onclick="openModal('${r.imageData}')">` : ''}
                     </div>
@@ -548,10 +536,9 @@ async function submitReport() {
             date: localDateTimeValue().slice(0,10),
             time: new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
             timestamp: new Date().toISOString(),
-            downtimeStart: startText || localDateTimeValue(new Date(startMs)),
-            downtimeStartMs: startMs,
-            downtimeEnd: endMs == null ? '' : (endText || localDateTimeValue(new Date(endMs))),
-            downtimeEndMs: endMs == null ? '' : endMs
+            downtimeStart: startText || localDateTimeValue(new Date(startMs)), downtimeStartMs: startMs,
+            downtimeEnd: endMs == null ? '' : (endText || localDateTimeValue(new Date(endMs))), downtimeEndMs: endMs == null ? '' : endMs,
+            repairNote: ''
         };
         // ✅ บันทึกรูปภาพลงฐานข้อมูลด้วย
         if (selectedImageBase64) {
@@ -564,9 +551,7 @@ async function submitReport() {
         selectedImageBase64 = null;
         document.getElementById('previewArea').style.display = 'none';
         document.getElementById('previewImg').src = '';
-        document.getElementById('downtimeStart').value = localDateTimeValue();
-        document.getElementById('downtimeEnd').value = '';
-        refreshDowntimePreview();
+        document.getElementById('downtimeStart').value = localDateTimeValue(); document.getElementById('downtimeEnd').value = ''; refreshDowntimePreview();
     } catch(err) {
         showToast('❌ ผิดพลาด: ' + err.message);
     } finally {
@@ -577,12 +562,7 @@ async function submitReport() {
 
 function subscribeData() {
     if (listener) listener.off();
-    db.ref('.info/connected').on('value', snap => {
-        const el=document.getElementById('connectionStatus');
-        const connected=snap.val()===true;
-        el.textContent=connected?'● เชื่อมต่อฐานข้อมูลแล้ว':'● ขาดการเชื่อมต่อฐานข้อมูล';
-        el.className='text-xs mt-1 '+(connected?'text-green-600':'text-red-600');
-    });
+    db.ref('.info/connected').on('value', snap => { const el=document.getElementById('connectionStatus'); const ok=snap.val()===true; el.textContent=ok?'● เชื่อมต่อฐานข้อมูลแล้ว':'● ขาดการเชื่อมต่อฐานข้อมูล'; el.className='text-xs mt-1 '+(ok?'text-green-600':'text-red-600'); });
     listener = db.ref('machineReports').limitToLast(200).on('value', snap => {
         const data = snap.val() || {};
         reports = Object.entries(data).map(([id, val]) => ({id, ...val}))
@@ -594,7 +574,7 @@ function subscribeData() {
         if (!document.getElementById('tab-charts').classList.contains('hidden')) {
             updateAllCharts();
         }
-    }, err => { showToast('❌ อ่านข้อมูลไม่ได้: '+err.message); });
+    });
 }
 
 function updateMachineStatus() {
@@ -693,19 +673,20 @@ function renderList() {
         const cls = r.status==='รอดำเนินการ'?'status-wait':r.status==='กำลังแก้ไข'?'status-fixing':'status-done';
         html += `
         <tr class="border-t border-gray-50 hover:bg-gray-50">
-            <td class="px-2 py-2 text-xs">${escapeHTML(r.date)}<br>${escapeHTML(r.time)}<div class="mt-1 text-gray-500">เริ่ม: ${escapeHTML(r.downtimeStart || "-")}<br>สิ้นสุด: ${escapeHTML(r.downtimeEnd || "กำลังหยุด")}<br>รวม: ${escapeHTML(formatDuration(getDowntimeMs(r)))}</div></td>
-            <td class="px-2 py-2 font-medium text-xs">${escapeHTML(r.machineId)}</td>
+            <td class="px-2 py-2 text-xs">${r.date}<br>${r.time}</td>
+            <td class="px-2 py-2 font-medium text-xs">${r.machineId}</td>
             <td class="px-2 py-2 text-xs">
-                <div class="font-medium">${escapeHTML(r.problemType)}</div>
-                <div class="text-gray-400">${escapeHTML(r.reporter)}</div>
+                <div class="font-medium">${r.problemType}</div>
+                <div class="text-gray-400">${r.reporter}</div>
             </td>
             <td class="px-2 py-2 text-center">
                 ${r.imageData 
                     ? `<img src="${r.imageData}" class="report-thumbnail" onclick="openModal('${r.imageData}')" alt="รูปประกอบ">` 
                     : '<span class="text-gray-300 text-lg">—</span>'}
             </td>
-            <td class="px-2 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${escapeHTML(r.status)}</span></td>
+            <td class="px-2 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${r.status}</span></td>
             <td class="px-2 py-2 text-center">
+                <button type="button" onclick="openStatusEditor('${r.id}')" class="mr-2 text-blue-600 hover:text-blue-800 text-xs" title="แก้ไขสถานะ"><i class="fa fa-pen-to-square"></i> แก้ไข</button>
                 <button data-id="${r.id}" class="text-red-400 hover:text-red-600 text-xs">
                     <i class="fa fa-trash"></i>
                 </button>
@@ -725,12 +706,11 @@ function renderList() {
 }
 
 function exportCSV() {
-    if (!reports.length) { showToast('⚠️ ไม่มีข้อมูลสำหรับส่งออก'); return; }
-    const headers=['วันที่','เวลาแจ้ง','เครื่อง','ประเภทปัญหา','รายละเอียด','ผู้แจ้ง','ผู้รับผิดชอบ','สถานะ','เวลาเริ่มหยุด','เวลาสิ้นสุด','เวลาหยุด(ชั่วโมง)','มีรูปภาพ'];
-    const cell=v=>{let t=String(v ?? ''); if (/^\s*[=+\-@]/.test(t)) t="'"+t; return '"'+t.replace(/"/g,'""')+'"';};
-    const rows=reports.map(r=>[r.date,r.time,r.machineId,r.problemType,r.problemDetail,r.reporter,r.technician||'-',r.status,r.downtimeStart||'',r.downtimeEnd||'',(getDowntimeMs(r)/3600000).toFixed(2),r.imageData?'มี':'ไม่มี'].map(cell).join(','));
-    const blob=new Blob(['\uFEFF'+[headers.map(cell).join(','),...rows].join('\r\n')],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=`รายงานปัญหา_${localDateTimeValue().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); showToast('✅ ดาวน์โหลด CSV สำเร็จ');
+    if (!reports.length) return showToast('⚠️ ไม่มีข้อมูล');
+    const headers=['วันที่','เวลา','เครื่อง','ประเภทปัญหา','รายละเอียด','ผู้แจ้ง','ผู้รับผิดชอบ','สถานะ','ผลการแก้ไข','เวลาเริ่มหยุด','เวลาสิ้นสุด','เวลาหยุด(ชั่วโมง)','มีรูปภาพ'];
+    const cell=v=>{let t=String(v??'');if(/^\s*[=+\-@]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"';};
+    const rows=reports.map(r=>[r.date,r.time,r.machineId,r.problemType,r.problemDetail,r.reporter,r.technician||'-',r.status,r.repairNote||'',r.downtimeStart||'',r.downtimeEnd||'',(getDowntimeMs(r)/3600000).toFixed(2),r.imageData?'มี':'ไม่มี'].map(cell).join(','));
+    const blob=new Blob(['\uFEFF'+[headers.map(cell).join(','),...rows].join('\r\n')],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`รายงานปัญหา_${localDateTimeValue().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);showToast('✅ ดาวน์โหลดสำเร็จ');
 }
 
 function initCharts() {
@@ -744,9 +724,7 @@ function initCharts() {
     chartMachine = new Chart(document.getElementById('chartByMachine').getContext('2d'), {
         type:'bar', options: {...opts, indexAxis: 'y', plugins:{legend:{display:false}}}, data:{labels:[],datasets:[]}
     });
-    chartDowntime = new Chart(document.getElementById('chartDowntime').getContext('2d'), {
-        type:'bar', options:{...opts,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,title:{display:true,text:'ชั่วโมง'}}}},data:{labels:[],datasets:[]}
-    });
+    chartDowntime = new Chart(document.getElementById('chartDowntime').getContext('2d'), {type:'bar',options:{...opts,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,title:{display:true,text:'ชั่วโมง'}}}},data:{labels:[],datasets:[]}});
 }
 
 function updateAllCharts() {
@@ -785,12 +763,9 @@ function updateAllCharts() {
         backgroundColor:'#ef4444'
     }];
     chartMachine.update('none');
-    const downtime={};
-    filtered.forEach(r=>{downtime[r.machineId]=(downtime[r.machineId]||0)+getDowntimeMs(r);});
-    const top=Object.entries(downtime).sort((a,b)=>b[1]-a[1]).slice(0,10);
-    chartDowntime.data.labels=top.map(x=>x[0]);
-    chartDowntime.data.datasets=[{label:'เวลาหยุด (ชั่วโมง)',data:top.map(x=>+(x[1]/3600000).toFixed(2)),backgroundColor:'#f97316'}];
-    chartDowntime.update('none');
+    const down={}; filtered.forEach(r=>{down[r.machineId]=(down[r.machineId]||0)+getDowntimeMs(r);});
+    const topDown=Object.entries(down).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    chartDowntime.data.labels=topDown.map(x=>x[0]); chartDowntime.data.datasets=[{label:'เวลาหยุด (ชั่วโมง)',data:topDown.map(x=>+(x[1]/3600000).toFixed(2)),backgroundColor:'#f97316'}]; chartDowntime.update('none');
 }
 
 function showToast(msg) {
