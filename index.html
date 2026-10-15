@@ -8,6 +8,7 @@
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -55,6 +56,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const storage = firebase.storage();
 
 /* =========================================================
    GLOBAL VARIABLES
@@ -63,6 +65,7 @@ let reports = [];
 let reportsRef = null, reportsCallback = null;
 let chartType = null, chartStatus = null, chartMachine = null;
 let editingId = null, isSaving = false;
+let selectedReportImages = [];
 
 /* =========================================================
    DATA LISTS
@@ -175,25 +178,41 @@ function initForm() {
         }
 
         const now = new Date();
+        const reportRef = db.ref('machineReports').push();
         const data = {
             reporter, machineId, problemType, problemDetail, technician, status,
             date: getLocalDate(),
             time: now.toLocaleTimeString('th-TH', {hour: '2-digit', minute: '2-digit'}),
             timestamp: now.toISOString(), updatedAt: now.toISOString(), createdBy: reporter,
+            images: [],
             updateHistory: { [Date.now()]: { action: 'สร้างรายการ', status, technician, detail: problemDetail, timestamp: now.toISOString() } }
         };
 
         setSaving(true);
         try {
-            await db.ref('machineReports').push(data);
-            showToast('✅ บันทึกข้อมูลสำเร็จ');
+            const imageUrls = [];
+            for (let i = 0; i < imageFiles.length; i++) {
+                const file = imageFiles[i];
+                if (!file.type.startsWith('image/')) continue;
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const imageRef = storage.ref(`machineReports/${reportRef.key}/images/${Date.now()}_${i}_${safeName}`);
+                const uploaded = await imageRef.put(file);
+                const url = await uploaded.ref.getDownloadURL();
+                imageUrls.push({ name: file.name, url });
+            }
+            data.images = imageUrls;
+            await reportRef.set(data);
+            showToast('✅ บันทึกรายงานและรูปภาพสำเร็จ');
             form.reset();
             document.getElementById('status').value = 'รอดำเนินการ';
+            renderImagePreview();
         } catch (err) {
-            showToast('❌ ไม่สามารถบันทึกข้อมูลได้: ' + err.message);
+            console.error('Save report/images error:', err);
+            showToast('❌ บันทึกไม่สำเร็จ: ' + err.message);
         } finally { setSaving(false); }
     });
 
+    document.getElementById('reportImages').addEventListener('change', renderImagePreview);
     ['filterDate', 'filterMachine', 'filterStatus'].forEach(id =>
         document.getElementById(id).addEventListener('change', renderList)
     );
@@ -283,6 +302,9 @@ function renderTableRow(r) {
                 <button class="edit-btn px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" data-id="${r.id}" type="button">
                     <i class="fa fa-edit"></i>
                 </button>
+                <button class="view-images-btn px-2 py-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200" data-id="${r.id}" type="button" title="ดูรูปภาพ">
+                    <i class="fa fa-images"></i>${Array.isArray(r.images) && r.images.length ? `<span class="ml-1">${r.images.length}</span>` : ''}
+                </button>
                 <button class="history-btn px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200" data-id="${r.id}" type="button">
                     <i class="fa fa-history"></i>
                 </button>
@@ -310,6 +332,13 @@ document.addEventListener('click', function(e) {
     if (editBtn) {
         const id = editBtn.getAttribute('data-id');
         if (id) openEditModal(id);
+        return;
+    }
+    // ปุ่มดูรูปภาพ
+    const imagesBtn = e.target.closest('.view-images-btn');
+    if (imagesBtn) {
+        const id = imagesBtn.getAttribute('data-id');
+        if (id) openImagesModal(id);
         return;
     }
     // ปุ่มประวัติ
@@ -403,6 +432,55 @@ async function saveEdit() {
     } catch (err) {
         showToast('❌ แก้ไขไม่สำเร็จ: ' + err.message);
     } finally { setSaving(false); }
+}
+
+/* =========================================================
+   REPORT IMAGE PREVIEW / VIEWER
+   ========================================================= */
+function renderImagePreview() {
+    const input = document.getElementById('reportImages');
+    const container = document.getElementById('imagePreview');
+    if (!input || !container) return;
+    const files = Array.from(input.files || []);
+    if (!files.length) {
+        container.innerHTML = '<p class="text-sm text-gray-500">ยังไม่ได้เลือกรูปภาพ</p>';
+        return;
+    }
+    container.innerHTML = files.map((file, i) => {
+        const url = URL.createObjectURL(file);
+        return `<div class="inline-flex flex-col gap-1 border rounded-lg p-2 bg-white">
+            <img src="${url}" alt="ตัวอย่างรูปที่ ${i+1}" class="w-24 h-24 object-cover rounded">
+            <span class="text-xs max-w-24 break-all">${escapeHTML(file.name)}</span>
+        </div>`;
+    }).join('');
+}
+
+function openImagesModal(id) {
+    const report = reports.find(r => r.id === id);
+    if (!report) { showToast('❌ ไม่พบรายงาน'); return; }
+    document.getElementById('imagesTitle').textContent = `รูปภาพ — ${report.machineId || '-'} | ${report.date || '-'}`;
+    const container = document.getElementById('imagesContent');
+    const images = Array.isArray(report.images) ? report.images : [];
+    if (!images.length) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-8">รายงานนี้ไม่มีรูปภาพแนบไว้</p>';
+    } else {
+        container.innerHTML = images.map((item, i) => {
+            const url = typeof item === 'string' ? item : item.url;
+            const name = typeof item === 'string' ? `รูปภาพ ${i+1}` : (item.name || `รูปภาพ ${i+1}`);
+            if (!url || !/^https:\/\//i.test(url)) return '';
+            return `<div class="border rounded-lg p-3">
+                <a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="block">
+                    <img src="${escapeHTML(url)}" alt="${escapeHTML(name)}" loading="lazy" class="max-h-96 w-full object-contain rounded bg-gray-50">
+                </a>
+                <p class="text-sm text-gray-600 mt-2 break-all">${escapeHTML(name)}</p>
+                <a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline text-sm">เปิดรูปภาพขนาดเต็ม</a>
+            </div>`;
+        }).join('');
+    }
+    document.getElementById('imagesModal').classList.remove('hidden');
+}
+function closeImagesModal() {
+    document.getElementById('imagesModal').classList.add('hidden');
 }
 
 /* =========================================================
@@ -608,6 +686,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const editModal = document.getElementById('editModal');
     const historyModal = document.getElementById('historyModal');
+    const imagesModal = document.getElementById('imagesModal');
+    ['closeImagesBottomBtn', 'closeImagesX'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', closeImagesModal);
+    });
+    if (imagesModal) imagesModal.addEventListener('click', e => {
+        if (e.target === imagesModal) closeImagesModal();
+    });
     if (editModal) editModal.addEventListener('click', e => {
         if (e.target === editModal) closeEditModal();
     });
@@ -712,6 +798,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">📝 รายละเอียดปัญหา</label>
                     <textarea id="problemDetail" rows="5" required class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ระบุอาการ สาเหตุ หรือรายละเอียดที่พบ..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">📷 รูปภาพประกอบใบงาน (เลือกได้หลายรูป)</label>
+                    <input type="file" id="reportImages" accept="image/*" multiple class="w-full px-3 py-3 border rounded-lg bg-white">
+                    <p class="text-xs text-gray-500 mt-1">แนบรูปอาการเสียหรือรูปชิ้นงานก่อนกดบันทึก รูปภาพจะถูกบันทึกไปกับรายงาน</p>
+                    <div id="imagePreview" class="flex flex-wrap gap-3 mt-3"><p class="text-sm text-gray-500">ยังไม่ได้เลือกรูปภาพ</p></div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -874,6 +966,20 @@ document.addEventListener('DOMContentLoaded', () => {
         <div id="historyContent" class="p-5"></div>
         <div class="p-5 border-t text-right">
             <button id="closeHistoryBottomBtn" type="button" class="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">ปิด</button>
+        </div>
+    </div>
+</div>
+
+<!-- REPORT IMAGES MODAL -->
+<div id="imagesModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 modal-backdrop">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl modal-box">
+        <div class="p-4 border-b flex justify-between items-center gap-3">
+            <h2 id="imagesTitle" class="text-lg font-bold">รูปภาพในใบงาน</h2>
+            <button id="closeImagesX" type="button" class="text-gray-500 hover:text-red-500 text-xl" aria-label="ปิด"><i class="fa fa-times"></i></button>
+        </div>
+        <div id="imagesContent" class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+        <div class="p-4 border-t text-right">
+            <button id="closeImagesBottomBtn" type="button" class="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">ปิด</button>
         </div>
     </div>
 </div>
