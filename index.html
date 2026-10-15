@@ -172,6 +172,7 @@ function initForm() {
         const problemDetail = document.getElementById('problemDetail').value.trim();
         const technician = document.getElementById('technician').value.trim() || '-';
         const status = document.getElementById('status').value;
+        const imageFiles = Array.from(document.getElementById('reportImages').files || []);
 
         if (!reporter || !machineId || !problemType || !problemDetail) {
             showToast('⚠️ กรุณากรอกข้อมูลที่จำเป็นให้ครบ'); return;
