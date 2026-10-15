@@ -3,788 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบรายงานปัญหาเครื่องจักร — แผนก ROUTER</title>
-
+    <title>ระบบรายงานปัญหาเครื่องจักร — แผนกเราเตอร์</title>
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
-
+    
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, "Noto Sans Thai", sans-serif; }
-        .tab-active { background-color: #2563eb !important; color: white !important; border-color: #2563eb !important; }
+        .tab-active { background-color: #2563eb; color: white; }
         .status-wait { background-color: #fef3c7; color: #92400e; }
         .status-fixing { background-color: #dbeafe; color: #1e40af; }
         .status-done { background-color: #d1fae5; color: #065f46; }
-        .stat-card { transition: transform .2s, box-shadow .2s; }
-        .stat-card:hover { transform: translateY(-2px); }
-        .modal-backdrop { background: rgba(0,0,0,.55); }
-        .modal-box { max-height: 90vh; overflow-y: auto; }
-        canvas { max-height: 320px; }
-        .loading { pointer-events: none; opacity: .65; }
-        .machine-card { transition: all .2s; }
-        .machine-card:hover { transform: translateY(-2px); }
-        button { cursor: pointer; }
-        @media (max-width: 640px) { .mobile-table { min-width: 900px; } }
+        canvas { max-height: 300px; }
+        .preview-img { max-height: 120px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; }
+        .preview-img:hover { transform: scale(1.05); }
+        .image-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; }
+        .image-modal.show { display: flex; }
+        .image-modal img { max-width: 90%; max-height: 85vh; border-radius: 4px; }
+        .preview-area { display: none; margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 8px; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
 <script>
-/* =========================================================
-   FIREBASE CONFIG
-   ========================================================= */
+// ===== FIREBASE CONFIG =====
 const firebaseConfig = {
-    apiKey: "AIzaSyAHXyYU4UzsPWxBRUpfJCRqs6ivX6X3i-E",
-    authDomain: "leave-system-router.firebaseapp.com",
-    databaseURL: "https://leave-system-router-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "leave-system-router",
-    storageBucket: "leave-system-router.firebasestorage.app",
-    messagingSenderId: "890248694626",
-    appId: "1:890248694626:web:8782cbc2a0ef3aa3a07a3b"
+  apiKey: "AIzaSyAHXyYU4UzsPWxBRUpfJCRqs6ivX6X3i-E",
+  authDomain: "leave-system-router.firebaseapp.com",
+  databaseURL: "https://leave-system-router-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  projectId: "leave-system-router",
+  storageBucket: "leave-system-router.firebasestorage.app",
+  messagingSenderId: "890248694626",
+  appId: "1:890248694626:web:8782cbc2a0ef3aa3a07a3b"
 };
-
-firebase.initializeApp(firebaseConfig);
+const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const storage = firebase.storage();
-
-/* =========================================================
-   GLOBAL VARIABLES
-   ========================================================= */
-let reports = [];
-let reportsRef = null, reportsCallback = null;
-let chartType = null, chartStatus = null, chartMachine = null;
-let editingId = null, isSaving = false;
-let selectedReportImages = [];
-
-/* =========================================================
-   DATA LISTS
-   ========================================================= */
-const MACHINES = Array.from({length: 54}, (_, i) => `Router-${String(i + 1).padStart(2, '0')}`);
-const PROBLEM_TYPES = [
-    'เครื่องไม่ทำงาน', 'เสียงผิดปกติ', 'ความผิดพลาดของชิ้นงาน',
-    'ระบบไฟฟ้า', 'ระบบไฮดรอลิก', 'อะไหล่ชำรุด', 'การตั้งค่าเครื่อง', 'อื่นๆ'
-];
-const STATUS_LIST = ['รอดำเนินการ', 'กำลังแก้ไข', 'เสร็จสิ้น'];
-
-/* =========================================================
-   INITIALIZE
-   ========================================================= */
-document.addEventListener('DOMContentLoaded', () => {
-    initDate();
-    initMachineOptions();
-    initMonthOptions();
-    initTabs();
-    initForm();
-    initCharts();
-    initDashboardButtons();
-    subscribeData();
-});
-
-/* =========================================================
-   DATE DISPLAY
-   ========================================================= */
-function initDate() {
-    const now = new Date();
-    document.getElementById('currentDate').textContent =
-        'วันที่: ' + now.toLocaleDateString('th-TH', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        });
-}
-
-/* =========================================================
-   DROPDOWN OPTIONS
-   ========================================================= */
-function initMachineOptions() {
-    ['machineId', 'filterMachine', 'chartMachine', 'dashboardMachine', 'editMachine'].forEach(id => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        MACHINES.forEach(m => {
-            const option = document.createElement('option');
-            option.value = m;
-            option.textContent = m;
-            sel.appendChild(option);
-        });
-    });
-
-    const problemSelect = document.getElementById('editProblemType');
-    if (problemSelect) {
-        PROBLEM_TYPES.forEach(problem => {
-            const option = document.createElement('option');
-            option.value = problem;
-            option.textContent = problem;
-            problemSelect.appendChild(option);
-        });
-    }
-}
-
-function initMonthOptions() {
-    const select = document.getElementById('chartMonth');
-    const now = new Date();
-    for (let i = 0; i < 24; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const label = d.toLocaleDateString('th-TH', {month: 'long', year: 'numeric'});
-        select.innerHTML += `<option value="${val}">${label}</option>`;
-    }
-    const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    select.value = current;
-}
-
-/* =========================================================
-   TABS NAVIGATION
-   ========================================================= */
-function initTabs() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const tabId = this.dataset.tab;
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
-            this.classList.add('tab-active');
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
-            if (tabId === 'charts') updateAllCharts();
-            if (tabId === 'dashboard') renderDashboard();
-        });
-    });
-}
-
-/* =========================================================
-   MAIN FORM HANDLING
-   ========================================================= */
-function initForm() {
-    const form = document.getElementById('reportForm');
-    form.addEventListener('submit', async e => {
-        e.preventDefault();
-        if (isSaving) return;
-        const reporter = document.getElementById('reporter').value.trim();
-        const machineId = document.getElementById('machineId').value;
-        const problemType = document.getElementById('problemType').value;
-        const problemDetail = document.getElementById('problemDetail').value.trim();
-        const technician = document.getElementById('technician').value.trim() || '-';
-        const status = document.getElementById('status').value;
-        const imageFiles = Array.from(document.getElementById('reportImages').files || []);
-
-        if (!reporter || !machineId || !problemType || !problemDetail) {
-            showToast('⚠️ กรุณากรอกข้อมูลที่จำเป็นให้ครบ'); return;
-        }
-
-        const now = new Date();
-        const reportRef = db.ref('machineReports').push();
-        const data = {
-            reporter, machineId, problemType, problemDetail, technician, status,
-            date: getLocalDate(),
-            time: now.toLocaleTimeString('th-TH', {hour: '2-digit', minute: '2-digit'}),
-            timestamp: now.toISOString(), updatedAt: now.toISOString(), createdBy: reporter,
-            images: [],
-            updateHistory: { [Date.now()]: { action: 'สร้างรายการ', status, technician, detail: problemDetail, timestamp: now.toISOString() } }
-        };
-
-        setSaving(true);
-        try {
-            const imageUrls = [];
-            for (let i = 0; i < imageFiles.length; i++) {
-                const file = imageFiles[i];
-                if (!file.type.startsWith('image/')) continue;
-                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-                const imageRef = storage.ref(`machineReports/${reportRef.key}/images/${Date.now()}_${i}_${safeName}`);
-                const uploaded = await imageRef.put(file);
-                const url = await uploaded.ref.getDownloadURL();
-                imageUrls.push({ name: file.name, url });
-            }
-            data.images = imageUrls;
-            await reportRef.set(data);
-            showToast('✅ บันทึกรายงานและรูปภาพสำเร็จ');
-            form.reset();
-            document.getElementById('status').value = 'รอดำเนินการ';
-            renderImagePreview();
-        } catch (err) {
-            console.error('Save report/images error:', err);
-            showToast('❌ บันทึกไม่สำเร็จ: ' + err.message);
-        } finally { setSaving(false); }
-    });
-
-    document.getElementById('reportImages').addEventListener('change', renderImagePreview);
-    ['filterDate', 'filterMachine', 'filterStatus'].forEach(id =>
-        document.getElementById(id).addEventListener('change', renderList)
-    );
-    document.getElementById('searchText').addEventListener('input', renderList);
-    document.getElementById('btnClearFilter').addEventListener('click', clearFilters);
-    document.getElementById('btnExport').addEventListener('click', exportCSV);
-    document.getElementById('btnRefreshChart').addEventListener('click', updateAllCharts);
-}
-
-/* =========================================================
-   FIREBASE REALTIME LISTENER
-   ========================================================= */
-function subscribeData() {
-    // Detach only the previous value callback from its reference.
-    if (reportsRef && reportsCallback) {
-        reportsRef.off('value', reportsCallback);
-    }
-
-    reportsRef = db.ref('machineReports');
-    reportsCallback = snapshot => {
-        const data = snapshot.val() || {};
-        reports = Object.entries(data)
-            .filter(([, value]) => value && typeof value === 'object')
-            .map(([id, value]) => ({ id, ...value }))
-            .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
-        renderList();
-        renderDashboard();
-        updateAllCharts();
-        updateConnection(true);
-    };
-
-    reportsRef.on('value', reportsCallback, error => {
-        console.error('Firebase listener error:', error);
-        updateConnection(false);
-        showToast('❌ Firebase Error: ' + (error.message || 'ไม่สามารถโหลดข้อมูลได้'));
-    });
-}
-
-function updateConnection(connected) {
-    const el = document.getElementById('connectionStatus');
-    if (!el) return;
-    el.innerHTML = connected
-        ? '<span class="text-green-600"><i class="fa fa-circle text-xs mr-1"></i> เชื่อมต่อ Firebase แล้ว</span>'
-        : '<span class="text-red-600"><i class="fa fa-circle text-xs mr-1"></i> ไม่สามารถเชื่อมต่อ Firebase</span>';
-}
-
-/* =========================================================
-   RENDER REPORT LIST
-   ========================================================= */
-function renderList() {
-    const dateF = document.getElementById('filterDate').value;
-    const machF = document.getElementById('filterMachine').value;
-    const statF = document.getElementById('filterStatus').value;
-    const search = document.getElementById('searchText').value.trim().toLowerCase();
-
-    let filtered = [...reports];
-    if (dateF) filtered = filtered.filter(r => r.date === dateF);
-    if (machF) filtered = filtered.filter(r => r.machineId === machF);
-    if (statF) filtered = filtered.filter(r => r.status === statF);
-    if (search) filtered = filtered.filter(r =>
-        [r.reporter, r.machineId, r.problemType, r.problemDetail, r.technician, r.status]
-            .join(' ').toLowerCase().includes(search)
-    );
-
-    const tbody = document.getElementById('reportList');
-    if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-10 text-center text-gray-500">
-            <i class="fa fa-search text-2xl mb-2 block"></i>ไม่พบข้อมูลรายงาน
-        </td></tr>`;
-        updateResultCount(0); return;
-    }
-    tbody.innerHTML = filtered.map(renderTableRow).join('');
-    updateResultCount(filtered.length);
-}
-
-function renderTableRow(r) {
-    const cls = getStatusClass(r.status);
-    return `<tr class="border-t hover:bg-gray-50">
-        <td class="px-3 py-3 whitespace-nowrap"><div class="font-medium">${escapeHTML(r.date || '-')}</div><div class="text-xs text-gray-500">${escapeHTML(r.time || '')}</div></td>
-        <td class="px-3 py-3 font-bold text-blue-700">${escapeHTML(r.machineId || '-')}</td>
-        <td class="px-3 py-3">${escapeHTML(r.problemType || '-')}</td>
-        <td class="px-3 py-3">${escapeHTML(r.reporter || '-')}</td>
-        <td class="px-3 py-3">${escapeHTML(r.technician || '-')}</td>
-        <td class="px-3 py-3"><span class="px-2 py-1 rounded-full text-xs font-medium ${cls}">${getStatusIcon(r.status)} ${escapeHTML(r.status || '-')}</span></td>
-        <td class="px-3 py-3 text-center">
-            <div class="flex justify-center gap-1">
-                <button class="edit-btn px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" data-id="${r.id}" type="button">
-                    <i class="fa fa-edit"></i>
-                </button>
-                <button class="view-images-btn px-2 py-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200" data-id="${r.id}" type="button" title="ดูรูปภาพ">
-                    <i class="fa fa-images"></i>${Array.isArray(r.images) && r.images.length ? `<span class="ml-1">${r.images.length}</span>` : ''}
-                </button>
-                <button class="history-btn px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200" data-id="${r.id}" type="button">
-                    <i class="fa fa-history"></i>
-                </button>
-                <button class="delete-btn px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200" data-id="${r.id}" type="button">
-                    <i class="fa fa-trash"></i>
-                </button>
-            </div>
-        </td>
-    </tr>`;
-}
-
-/* =========================================================
-   ✅ GLOBAL CLICK HANDLER — ปุ่มทั้งหมด ทำงานแน่นอน
-   ========================================================= */
-document.addEventListener('click', function(e) {
-    // ปุ่มลบ
-    const deleteBtn = e.target.closest('.delete-btn');
-    if (deleteBtn) {
-        const id = deleteBtn.getAttribute('data-id');
-        if (id) deleteReport(id);
-        return;
-    }
-    // ปุ่มแก้ไข
-    const editBtn = e.target.closest('.edit-btn');
-    if (editBtn) {
-        const id = editBtn.getAttribute('data-id');
-        if (id) openEditModal(id);
-        return;
-    }
-    // ปุ่มดูรูปภาพ
-    const imagesBtn = e.target.closest('.view-images-btn');
-    if (imagesBtn) {
-        const id = imagesBtn.getAttribute('data-id');
-        if (id) openImagesModal(id);
-        return;
-    }
-    // ปุ่มประวัติ
-    const historyBtn = e.target.closest('.history-btn');
-    if (historyBtn) {
-        const id = historyBtn.getAttribute('data-id');
-        if (id) openHistoryModal(id);
-        return;
-    }
-});
-
-/* =========================================================
-   DELETE REPORT FUNCTION
-   ========================================================= */
-async function deleteReport(id) {
-    if (!id) {
-        showToast('❌ ไม่พบรหัสรายงานที่ต้องการลบ');
-        return;
-    }
-    const report = reports.find(r => r.id === id);
-    if (!report) {
-        showToast('❌ ไม่พบข้อมูลรายการที่ต้องการลบ');
-        return;
-    }
-
-    const confirmed = confirm(
-        '⚠️ ยืนยันการลบรายงานนี้หรือไม่?\n\n' +
-        `เครื่อง: ${report.machineId || '-'}\n` +
-        `วันที่: ${report.date || '-'}\n` +
-        `ประเภท: ${report.problemType || '-'}\n\n` +
-        'ข้อมูลที่ลบแล้วจะไม่สามารถกู้คืนได้'
-    );
-    if (!confirmed) return;
-
-    try {
-        await db.ref('machineReports').child(id).remove();
-        showToast('✅ ส่งคำสั่งลบรายงานสำเร็จ');
-    } catch (err) {
-        console.error('Delete report error:', err);
-        if (err && (err.code === 'PERMISSION_DENIED' || /permission_denied/i.test(err.message || ''))) {
-            showToast('❌ Firebase ปฏิเสธการลบ กรุณาตรวจสอบ Database Rules และสิทธิ์ผู้ใช้');
-        } else {
-            showToast('❌ ไม่สามารถลบข้อมูลได้: ' + ((err && err.message) || 'เกิดข้อผิดพลาด'));
-        }
-    }
-}
-
-/* =========================================================
-   EDIT MODAL FUNCTIONS
-   ========================================================= */
-function openEditModal(id) {
-    const report = reports.find(r => r.id === id);
-    if (!report) { showToast('❌ ไม่พบข้อมูล'); return; }
-    editingId = id;
-    document.getElementById('editReporter').value = report.reporter || '';
-    document.getElementById('editMachine').value = report.machineId || '';
-    document.getElementById('editProblemType').value = report.problemType || '';
-    document.getElementById('editProblemDetail').value = report.problemDetail || '';
-    document.getElementById('editTechnician').value = report.technician || '';
-    document.getElementById('editStatus').value = report.status || 'รอดำเนินการ';
-    document.getElementById('editModal').classList.remove('hidden');
-}
-
-function closeEditModal() { editingId = null; document.getElementById('editModal').classList.add('hidden'); }
-
-async function saveEdit() {
-    if (!editingId || isSaving) return;
-    const report = reports.find(r => r.id === editingId);
-    if (!report) return;
-    const reporter = document.getElementById('editReporter').value.trim();
-    const machineId = document.getElementById('editMachine').value;
-    const problemType = document.getElementById('editProblemType').value;
-    const problemDetail = document.getElementById('editProblemDetail').value.trim();
-    const technician = document.getElementById('editTechnician').value.trim() || '-';
-    const status = document.getElementById('editStatus').value;
-
-    if (!reporter || !machineId || !problemType || !problemDetail) {
-        showToast('⚠️ กรุณากรอกข้อมูลให้ครบ'); return;
-    }
-
-    const now = new Date();
-    const history = { ...(report.updateHistory || {}) };
-    history[`${Date.now()}_${Math.random().toString(36).slice(2, 8)}`] = { action: 'แก้ไขข้อมูล', oldStatus: report.status || '', status, technician, detail: problemDetail, timestamp: now.toISOString() };
-    const updates = { reporter, machineId, problemType, problemDetail, technician, status, updatedAt: now.toISOString(), updateHistory: history };
-
-    setSaving(true);
-    try {
-        await db.ref('machineReports/' + editingId).update(updates);
-        closeEditModal();
-        showToast('✅ แก้ไขข้อมูลสำเร็จ');
-    } catch (err) {
-        showToast('❌ แก้ไขไม่สำเร็จ: ' + err.message);
-    } finally { setSaving(false); }
-}
-
-/* =========================================================
-   REPORT IMAGE PREVIEW / VIEWER
-   ========================================================= */
-function renderImagePreview() {
-    const input = document.getElementById('reportImages');
-    const container = document.getElementById('imagePreview');
-    if (!input || !container) return;
-    const files = Array.from(input.files || []);
-    if (!files.length) {
-        container.innerHTML = '<p class="text-sm text-gray-500">ยังไม่ได้เลือกรูปภาพ</p>';
-        return;
-    }
-    container.innerHTML = files.map((file, i) => {
-        const url = URL.createObjectURL(file);
-        return `<div class="inline-flex flex-col gap-1 border rounded-lg p-2 bg-white">
-            <img src="${url}" alt="ตัวอย่างรูปที่ ${i+1}" class="w-24 h-24 object-cover rounded">
-            <span class="text-xs max-w-24 break-all">${escapeHTML(file.name)}</span>
-        </div>`;
-    }).join('');
-}
-
-function openImagesModal(id) {
-    const report = reports.find(r => r.id === id);
-    if (!report) { showToast('❌ ไม่พบรายงาน'); return; }
-    document.getElementById('imagesTitle').textContent = `รูปภาพ — ${report.machineId || '-'} | ${report.date || '-'}`;
-    const container = document.getElementById('imagesContent');
-    const images = Array.isArray(report.images) ? report.images : [];
-    if (!images.length) {
-        container.innerHTML = '<p class="text-center text-gray-500 py-8">รายงานนี้ไม่มีรูปภาพแนบไว้</p>';
-    } else {
-        container.innerHTML = images.map((item, i) => {
-            const url = typeof item === 'string' ? item : item.url;
-            const name = typeof item === 'string' ? `รูปภาพ ${i+1}` : (item.name || `รูปภาพ ${i+1}`);
-            if (!url || !/^https:\/\//i.test(url)) return '';
-            return `<div class="border rounded-lg p-3">
-                <a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="block">
-                    <img src="${escapeHTML(url)}" alt="${escapeHTML(name)}" loading="lazy" class="max-h-96 w-full object-contain rounded bg-gray-50">
-                </a>
-                <p class="text-sm text-gray-600 mt-2 break-all">${escapeHTML(name)}</p>
-                <a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline text-sm">เปิดรูปภาพขนาดเต็ม</a>
-            </div>`;
-        }).join('');
-    }
-    document.getElementById('imagesModal').classList.remove('hidden');
-}
-function closeImagesModal() {
-    document.getElementById('imagesModal').classList.add('hidden');
-}
-
-/* =========================================================
-   HISTORY MODAL FUNCTIONS
-   ========================================================= */
-function openHistoryModal(id) {
-    const report = reports.find(r => r.id === id);
-    if (!report) return;
-    document.getElementById('historyTitle').textContent = `${report.machineId} — ${report.problemType}`;
-    const history = report.updateHistory || {};
-    const entries = Object.values(history).sort((a,b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
-    const container = document.getElementById('historyContent');
-
-    if (!entries.length) {
-        container.innerHTML = `<p class="text-gray-500 text-center py-6">ยังไม่มีประวัติการแก้ไข</p>`;
-    } else {
-        container.innerHTML = entries.map(item => {
-            const date = item.timestamp ? new Date(item.timestamp).toLocaleString('th-TH') : '-';
-            return `<div class="border rounded-lg p-3 mb-3 bg-gray-50">
-                <div class="flex justify-between gap-3">
-                    <div class="font-semibold text-gray-800">${escapeHTML(item.action || 'แก้ไข')}</div>
-                    <div class="text-xs text-gray-500">${escapeHTML(date)}</div>
-                </div>
-                <div class="text-sm mt-2">สถานะ: <span class="font-medium">${escapeHTML(item.status || '-')}</span></div>
-                <div class="text-sm">ผู้รับผิดชอบ: ${escapeHTML(item.technician || '-')}</div>
-                ${item.detail ? `<div class="text-sm mt-1 text-gray-600">รายละเอียด: ${escapeHTML(item.detail)}</div>` : ''}
-            </div>`;
-        }).join('');
-    }
-    document.getElementById('historyModal').classList.remove('hidden');
-}
-
-function closeHistoryModal() { document.getElementById('historyModal').classList.add('hidden'); }
-
-/* =========================================================
-   DASHBOARD
-   ========================================================= */
-function renderDashboard() {
-    const total = reports.length;
-    const waiting = reports.filter(r => r.status === 'รอดำเนินการ').length;
-    const fixing = reports.filter(r => r.status === 'กำลังแก้ไข').length;
-    const done = reports.filter(r => r.status === 'เสร็จสิ้น').length;
-
-    document.getElementById('totalCount').textContent = total;
-    document.getElementById('waitingCount').textContent = waiting;
-    document.getElementById('fixingCount').textContent = fixing;
-    document.getElementById('doneCount').textContent = done;
-
-    const machine = document.getElementById('dashboardMachine').value;
-    const machineReports = machine ? reports.filter(r => r.machineId === machine) : reports;
-    const counts = {};
-    MACHINES.forEach(m => counts[m] = 0);
-    machineReports.forEach(r => { if (counts[r.machineId] !== undefined) counts[r.machineId]++; });
-    const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
-
-    document.getElementById('machineSummary').innerHTML = sorted.map(([m, c]) => {
-        const has = c > 0;
-        return `<div class="machine-card border rounded-lg p-3 ${has ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}">
-            <div class="flex justify-between items-center">
-                <span class="font-bold">${m}</span>
-                <span class="text-lg font-bold ${has ? 'text-red-600' : 'text-gray-400'}">${c}</span>
-            </div>
-            <div class="text-xs text-gray-500">${has ? 'มีประวัติปัญหา' : 'ไม่มีปัญหา'}</div>
-        </div>`;
-    }).join('');
-}
-
-function initDashboardButtons() {
-    document.getElementById('dashboardMachine').addEventListener('change', renderDashboard);
-}
-
-/* =========================================================
-   CHARTS
-   ========================================================= */
-function initCharts() {
-    chartType = new Chart(document.getElementById('chartByType').getContext('2d'), {
-        type: 'bar', data: { labels: [], datasets: [] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
-    });
-    chartStatus = new Chart(document.getElementById('chartByStatus').getContext('2d'), {
-        type: 'doughnut', data: { labels: [], datasets: [] },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-    chartMachine = new Chart(document.getElementById('chartByMachine').getContext('2d'), {
-        type: 'bar', data: { labels: [], datasets: [] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
-    });
-}
-
-function updateAllCharts() {
-    if (!chartType || !chartStatus || !chartMachine) return;
-    const month = document.getElementById('chartMonth').value;
-    const machine = document.getElementById('chartMachine').value;
-    let filtered = [...reports];
-    if (month) filtered = filtered.filter(r => String(r.date || '').slice(0,7) === month);
-    if (machine) filtered = filtered.filter(r => r.machineId === machine);
-
-    const typeCount = {};
-    PROBLEM_TYPES.forEach(t => typeCount[t] = 0);
-    filtered.forEach(r => { if (typeCount[r.problemType] !== undefined) typeCount[r.problemType]++; });
-    chartType.data.labels = Object.keys(typeCount);
-    chartType.data.datasets = [{ label: 'จำนวนครั้ง', data: Object.values(typeCount), backgroundColor: '#3b82f6' }];
-    chartType.update();
-
-    const statusCount = { 'รอดำเนินการ':0, 'กำลังแก้ไข':0, 'เสร็จสิ้น':0 };
-    filtered.forEach(r => { if (statusCount[r.status] !== undefined) statusCount[r.status]++; });
-    chartStatus.data.labels = Object.keys(statusCount);
-    chartStatus.data.datasets = [{ data: Object.values(statusCount), backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'] }];
-    chartStatus.update();
-
-    const machineCount = {};
-    filtered.forEach(r => { machineCount[r.machineId] = (machineCount[r.machineId] || 0) + 1; });
-    const sorted = Object.entries(machineCount).sort((a,b) => b[1] - a[1]).slice(0,15);
-    chartMachine.data.labels = sorted.map(x => x[0]);
-    chartMachine.data.datasets = [{ label: 'จำนวนครั้งที่มีปัญหา', data: sorted.map(x => x[1]), backgroundColor: '#ef4444' }];
-    chartMachine.update();
-}
-
-/* =========================================================
-   EXPORT TO CSV
-   ========================================================= */
-function exportCSV() {
-    if (!reports.length) { showToast('⚠️ ไม่มีข้อมูลสำหรับส่งออก'); return; }
-    const headers = ['วันที่','เวลา','เครื่อง','ประเภทปัญหา','รายละเอียด','ผู้แจ้ง','ผู้รับผิดชอบ','สถานะ','แก้ไขล่าสุด'];
-    const rows = reports.map(r => [r.date, r.time, r.machineId, r.problemType, r.problemDetail, r.reporter, r.technician, r.status, r.updatedAt]);
-    const safeCSVCell = c => {
-        let value = String(c ?? '');
-        if (/^[\s\u0000-\u001f]*[=+@-]/.test(value)) value = "'" + value;
-        return `\"${value.replace(/\"/g, '\"\"')}\"`;
-    };
-    const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(safeCSVCell).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `รายงานปัญหาเครื่องจักร_${getLocalDate()}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    showToast('✅ ส่งออก CSV สำเร็จ');
-}
-
-function clearFilters() {
-    ['filterDate','filterMachine','filterStatus','searchText'].forEach(id => document.getElementById(id).value = '');
-    renderList();
-}
-
-/* =========================================================
-   HELPER FUNCTIONS
-   ========================================================= */
-function getStatusClass(s) {
-    if (s === 'รอดำเนินการ') return 'status-wait';
-    if (s === 'กำลังแก้ไข') return 'status-fixing';
-    if (s === 'เสร็จสิ้น') return 'status-done';
-    return 'bg-gray-100 text-gray-700';
-}
-function getStatusIcon(s) {
-    if (s === 'รอดำเนินการ') return '⏳';
-    if (s === 'กำลังแก้ไข') return '🔧';
-    if (s === 'เสร็จสิ้น') return '✅';
-    return '';
-}
-function getLocalDate() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function setSaving(v) {
-    isSaving = v;
-    document.querySelectorAll('button[type="submit"], #saveEditBtn').forEach(b => {
-        b.disabled = v; b.classList.toggle('opacity-50', v);
-    });
-}
-function escapeHTML(v) {
-    return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-}
-function showToast(m) {
-    const t = document.getElementById('toast');
-    t.textContent = m;
-    t.classList.remove('translate-y-full','opacity-0');
-    clearTimeout(window.toastTimer);
-    window.toastTimer = setTimeout(() => t.classList.add('translate-y-full','opacity-0'), 3000);
-}
-function updateResultCount(c) {
-    const el = document.getElementById('resultCount');
-    if (el) el.textContent = `แสดง ${c} รายการ`;
-}
-
-/* =========================================================
-   MODAL CLOSE BUTTONS
-   ========================================================= */
-document.addEventListener('DOMContentLoaded', () => {
-    const saveBtn = document.getElementById('saveEditBtn');
-    if (saveBtn) saveBtn.addEventListener('click', saveEdit);
-
-    ['cancelEditBtn', 'closeEditX'].forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) btn.addEventListener('click', closeEditModal);
-    });
-
-    ['closeHistoryBottomBtn', 'closeHistoryX'].forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) btn.addEventListener('click', closeHistoryModal);
-    });
-
-    const editModal = document.getElementById('editModal');
-    const historyModal = document.getElementById('historyModal');
-    const imagesModal = document.getElementById('imagesModal');
-    ['closeImagesBottomBtn', 'closeImagesX'].forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) btn.addEventListener('click', closeImagesModal);
-    });
-    if (imagesModal) imagesModal.addEventListener('click', e => {
-        if (e.target === imagesModal) closeImagesModal();
-    });
-    if (editModal) editModal.addEventListener('click', e => {
-        if (e.target === editModal) closeEditModal();
-    });
-    if (historyModal) historyModal.addEventListener('click', e => {
-        if (e.target === historyModal) closeHistoryModal();
-    });
-});
 </script>
 
-<div class="max-w-7xl mx-auto p-3 sm:p-4 pb-10">
+<!-- แสดงรูปภาพขนาดใหญ่เมื่อคลิก -->
+<div id="imageModal" class="image-modal" onclick="closeModal()">
+    <img id="modalImg" src="" alt="รูปภาพ">
+    <button class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300">&times;</button>
+</div>
 
-    <!-- HEADER -->
-    <div class="bg-white rounded-xl shadow p-4 sm:p-6 mb-5">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-800">🏭 ระบบรายงานปัญหางาน & เครื่องจักร</h1>
-                <p class="text-gray-500 text-sm mt-1">แผนก ROUTER — ระบบบันทึกและติดตามปัญหาเครื่องจักร 54 เครื่อง</p>
-                <p class="text-sm text-blue-600 mt-1" id="currentDate"></p>
-            </div>
-            <div id="connectionStatus" class="text-sm">
-                <span class="text-yellow-600"><i class="fa fa-circle-notch fa-spin mr-1"></i> กำลังเชื่อมต่อ...</span>
-            </div>
-        </div>
+<div class="max-w-6xl mx-auto p-4 pb-10">
+    <!-- ===== หัวข้อ ===== -->
+    <div class="bg-white rounded-xl shadow p-4 mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">🏭 ระบบรายงานปัญหางาน & เครื่องจักร</h1>
+        <p class="text-gray-500">แผนกเราเตอร์ — บันทึกและติดตามปัญหาเครื่องจักร ทั้งหมด 54 เครื่อง</p>
+        <p class="text-sm text-blue-600 mt-1" id="currentDate"></p>
     </div>
 
-    <!-- TABS -->
-    <div class="flex flex-wrap gap-2 mb-5">
-        <button class="tab-btn px-4 py-2 rounded-lg border tab-active" data-tab="dashboard">📊 Dashboard</button>
-        <button class="tab-btn px-4 py-2 rounded-lg border bg-white" data-tab="form">📝 บันทึกปัญหา</button>
+    <!-- ===== แถบเมนูแท็บ ===== -->
+    <div class="flex flex-wrap gap-2 mb-6">
+        <button class="tab-btn px-4 py-2 rounded-lg border tab-active" data-tab="form">📝 บันทึกปัญหา</button>
         <button class="tab-btn px-4 py-2 rounded-lg border bg-white" data-tab="list">📋 ประวัติรายงาน</button>
-        <button class="tab-btn px-4 py-2 rounded-lg border bg-white" data-tab="charts">📈 กราฟสรุปผล</button>
+        <button class="tab-btn px-4 py-2 rounded-lg border bg-white" data-tab="charts">📊 กราฟสรุปผล</button>
     </div>
 
-    <!-- DASHBOARD -->
-    <div id="tab-dashboard" class="tab-content">
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-            <div class="stat-card bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
-                <div class="text-sm text-gray-500">รายงานทั้งหมด</div>
-                <div id="totalCount" class="text-3xl font-bold text-blue-600 mt-1">0</div>
-            </div>
-            <div class="stat-card bg-white rounded-xl shadow p-4 border-l-4 border-yellow-500">
-                <div class="text-sm text-gray-500">รอดำเนินการ</div>
-                <div id="waitingCount" class="text-3xl font-bold text-yellow-600 mt-1">0</div>
-            </div>
-            <div class="stat-card bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
-                <div class="text-sm text-gray-500">กำลังแก้ไข</div>
-                <div id="fixingCount" class="text-3xl font-bold text-blue-600 mt-1">0</div>
-            </div>
-            <div class="stat-card bg-white rounded-xl shadow p-4 border-l-4 border-green-500">
-                <div class="text-sm text-gray-500">เสร็จสิ้น</div>
-                <div id="doneCount" class="text-3xl font-bold text-green-600 mt-1">0</div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl shadow p-4 sm:p-6">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                <div>
-                    <h2 class="text-xl font-bold">🏭 สถานะปัญหาเครื่องจักร</h2>
-                    <p class="text-sm text-gray-500">จำนวนครั้งที่มีการแจ้งปัญหา</p>
-                </div>
-                <select id="dashboardMachine" class="px-3 py-2 border rounded-lg">
-                    <option value="">-- ทุกเครื่อง --</option>
-                </select>
-            </div>
-            <div id="machineSummary" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                <div class="col-span-full text-center text-gray-500 py-8">กำลังโหลด...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- FORM -->
-    <div id="tab-form" class="tab-content hidden">
-        <div class="bg-white rounded-xl shadow p-4 sm:p-6">
+    <!-- ===== แท็บ 1: บันทึกปัญหา ===== -->
+    <div id="tab-form" class="tab-content">
+        <div class="bg-white rounded-xl shadow p-6">
             <h2 class="text-xl font-bold mb-6">📝 แบบฟอร์มแจ้งปัญหา</h2>
-            <form id="reportForm" class="space-y-4">
+            <form id="reportForm" class="space-y-4" onsubmit="return false;">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">👤 ผู้แจ้งปัญหา</label>
-                        <input type="text" id="reporter" required class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ชื่อ-นามสกุล">
+                        <input type="text" id="reporter" required class="w-full px-4 py-2 border rounded-lg" placeholder="ชื่อ-นามสกุล">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">🔧 เครื่องจักร</label>
-                        <select id="machineId" required class="w-full px-4 py-3 border rounded-lg">
+                        <select id="machineId" required class="w-full px-4 py-2 border rounded-lg">
                             <option value="">-- เลือกหมายเลขเครื่อง --</option>
                         </select>
                     </div>
                 </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">⚠️ ประเภทปัญหา</label>
-                    <select id="problemType" required class="w-full px-4 py-3 border rounded-lg">
+                    <select id="problemType" required class="w-full px-4 py-2 border rounded-lg">
                         <option value="">-- เลือกประเภทปัญหา --</option>
                         <option value="เครื่องไม่ทำงาน">🔴 เครื่องไม่ทำงาน</option>
                         <option value="เสียงผิดปกติ">🔊 เสียงผิดปกติ</option>
@@ -796,197 +98,466 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option value="อื่นๆ">📝 อื่นๆ</option>
                     </select>
                 </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">📝 รายละเอียดปัญหา</label>
-                    <textarea id="problemDetail" rows="5" required class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ระบุอาการ สาเหตุ หรือรายละเอียดที่พบ..."></textarea>
+                    <textarea id="problemDetail" rows="3" required class="w-full px-4 py-2 border rounded-lg" placeholder="ระบุอาการ สาเหตุ หรือรายละเอียดที่พบ..."></textarea>
                 </div>
+
+                <!-- 📸 ส่วนแนบรูปภาพ (Base64) -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">📷 รูปภาพประกอบใบงาน (เลือกได้หลายรูป)</label>
-                    <input type="file" id="reportImages" accept="image/*" multiple class="w-full px-3 py-3 border rounded-lg bg-white">
-                    <p class="text-xs text-gray-500 mt-1">แนบรูปอาการเสียหรือรูปชิ้นงานก่อนกดบันทึก รูปภาพจะถูกบันทึกไปกับรายงาน</p>
-                    <div id="imagePreview" class="flex flex-wrap gap-3 mt-3"><p class="text-sm text-gray-500">ยังไม่ได้เลือกรูปภาพ</p></div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">📸 แนบรูปภาพ (เพิ่มเติม)</label>
+                    <input type="file" id="problemImage" accept="image/*" class="w-full px-4 py-2 border rounded-lg">
+                    <p class="text-xs text-gray-400 mt-1">💡 รองรับ .jpg, .png — ขนาดไม่เกิน 5MB</p>
+                    
+                    <!-- แสดงตัวอย่างรูป -->
+                    <div id="previewArea" class="preview-area">
+                        <p class="text-sm text-gray-500 mb-2">ตัวอย่างรูปภาพ:</p>
+                        <img id="previewImg" class="preview-img" src="" alt="ตัวอย่างรูป">
+                        <button type="button" id="removeImage" class="ml-2 text-red-500 text-sm hover:text-red-700">
+                            <i class="fa fa-times-circle"></i> ลบรูป
+                        </button>
+                    </div>
                 </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">🔧 ผู้รับผิดชอบ / ช่าง</label>
-                        <input type="text" id="technician" class="w-full px-4 py-3 border rounded-lg" placeholder="ชื่อช่างผู้ดูแล">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">🔧 ผู้รับผิดชอบ/ช่าง</label>
+                        <input type="text" id="technician" class="w-full px-4 py-2 border rounded-lg" placeholder="ชื่อช่างผู้ดูแล">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">📌 สถานะปัญหา</label>
-                        <select id="status" class="w-full px-4 py-3 border rounded-lg">
-                            <option value="รอดำเนินการ">⏳ รอดำเนินการ</option>
-                            <option value="กำลังแก้ไข">🔧 กำลังแก้ไข</option>
-                            <option value="เสร็จสิ้น">✅ เสร็จสิ้น</option>
+                        <select id="status" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="รอดำเนินการ" class="status-wait">⏳ รอดำเนินการ</option>
+                            <option value="กำลังแก้ไข" class="status-fixing">🔧 กำลังแก้ไข</option>
+                            <option value="เสร็จสิ้น" class="status-done">✅ เสร็จสิ้น</option>
                         </select>
                     </div>
                 </div>
-                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+
+                <button type="button" id="submitBtn" onclick="submitReport()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
                     <i class="fa fa-paper-plane mr-2"></i> บันทึกข้อมูล
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- LIST -->
+    <!-- ===== แท็บ 2: ประวัติรายงาน ===== -->
     <div id="tab-list" class="tab-content hidden">
         <div class="bg-white rounded-xl shadow p-4 mb-4">
-            <div class="flex flex-col gap-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <h2 class="text-xl font-bold">📋 ประวัติรายงานปัญหา</h2>
-                        <p id="resultCount" class="text-sm text-gray-500">แสดง 0 รายการ</p>
-                    </div>
-                    <button id="btnExport" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm">
-                        <i class="fa fa-download mr-1"></i> ส่งออก CSV
-                    </button>
-                </div>
-                <div>
-                    <div class="relative">
-                        <i class="fa fa-search absolute left-3 top-3 text-gray-400"></i>
-                        <input type="text" id="searchText" class="w-full pl-10 pr-4 py-2 border rounded-lg" placeholder="ค้นหาเครื่อง, ผู้แจ้ง, ช่าง, ประเภทปัญหา หรือรายละเอียด...">
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                    <input type="date" id="filterDate" class="px-3 py-2 border rounded-lg text-sm">
-                    <select id="filterMachine" class="px-3 py-2 border rounded-lg text-sm">
+            <div class="flex flex-wrap gap-3 items-center justify-between">
+                <h2 class="text-xl font-bold">📋 ประวัติรายงานปัญหา</h2>
+                <div class="flex flex-wrap gap-2">
+                    <input type="date" id="filterDate" class="px-3 py-1.5 border rounded-lg text-sm">
+                    <select id="filterMachine" class="px-3 py-1.5 border rounded-lg text-sm">
                         <option value="">-- ทุกเครื่อง --</option>
                     </select>
-                    <select id="filterStatus" class="px-3 py-2 border rounded-lg text-sm">
+                    <select id="filterStatus" class="px-3 py-1.5 border rounded-lg text-sm">
                         <option value="">-- ทุกสถานะ --</option>
                         <option value="รอดำเนินการ">⏳ รอดำเนินการ</option>
                         <option value="กำลังแก้ไข">🔧 กำลังแก้ไข</option>
                         <option value="เสร็จสิ้น">✅ เสร็จสิ้น</option>
                     </select>
-                    <button id="btnClearFilter" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm">
-                        <i class="fa fa-rotate-left mr-1"></i> ล้างตัวกรอง
+                    <button id="btnExport" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm">
+                        <i class="fa fa-download mr-1"></i> ส่งออก CSV
                     </button>
                 </div>
             </div>
         </div>
+
         <div class="bg-white rounded-xl shadow overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-sm mobile-table">
+                <table class="w-full text-sm">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-3 py-3 text-left">วันที่</th>
-                            <th class="px-3 py-3 text-left">เครื่อง</th>
-                            <th class="px-3 py-3 text-left">ประเภทปัญหา</th>
-                            <th class="px-3 py-3 text-left">ผู้แจ้ง</th>
-                            <th class="px-3 py-3 text-left">ผู้รับผิดชอบ</th>
-                            <th class="px-3 py-3 text-left">สถานะ</th>
-                            <th class="px-3 py-3 text-center">จัดการ</th>
+                            <th class="px-3 py-2 text-left">วันที่</th>
+                            <th class="px-3 py-2 text-left">เครื่อง</th>
+                            <th class="px-3 py-2 text-left">ปัญหา</th>
+                            <th class="px-3 py-2 text-left">รูปภาพ</th>
+                            <th class="px-3 py-2 text-left">สถานะ</th>
+                            <th class="px-3 py-2 text-center">จัดการ</th>
                         </tr>
                     </thead>
                     <tbody id="reportList">
-                        <tr><td colspan="7" class="px-4 py-10 text-center text-gray-500"><i class="fa fa-circle-notch fa-spin mr-2"></i> กำลังโหลดข้อมูล...</td></tr>
+                        <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">กำลังโหลดข้อมูล...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- CHARTS -->
+    <!-- ===== แท็บ 3: กราฟสรุปผล ===== -->
     <div id="tab-charts" class="tab-content hidden">
-        <div class="bg-white rounded-xl shadow p-4 mb-5">
+        <div class="bg-white rounded-xl shadow p-4 mb-4">
             <h2 class="text-xl font-bold mb-4">📊 กราฟสรุปข้อมูล</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="flex flex-wrap gap-3 mb-6">
                 <select id="chartMonth" class="px-4 py-2 border rounded-lg">
-                    <option value="">-- ทุกเดือน --</option>
+                    <option value="">-- เลือกเดือน/ปี --</option>
                 </select>
                 <select id="chartMachine" class="px-4 py-2 border rounded-lg">
                     <option value="">-- ทุกเครื่อง --</option>
                 </select>
-                <button id="btnRefreshChart" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+                <button id="btnRefreshChart" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
                     <i class="fa fa-sync-alt mr-1"></i> อัปเดตกราฟ
                 </button>
             </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white rounded-xl shadow p-4">
                 <h3 class="font-bold mb-3">📈 จำนวนปัญหาแยกตามประเภท</h3>
-                <div class="h-80"><canvas id="chartByType"></canvas></div>
+                <canvas id="chartByType"></canvas>
             </div>
             <div class="bg-white rounded-xl shadow p-4">
                 <h3 class="font-bold mb-3">📊 สถานะการดำเนินงาน</h3>
-                <div class="h-80"><canvas id="chartByStatus"></canvas></div>
+                <canvas id="chartByStatus"></canvas>
             </div>
             <div class="bg-white rounded-xl shadow p-4 lg:col-span-2">
-                <h3 class="font-bold mb-3">🔧 จำนวนครั้งที่พบปัญหาแต่ละเครื่อง Top 15</h3>
-                <div class="h-80"><canvas id="chartByMachine"></canvas></div>
+                <h3 class="font-bold mb-3">🔧 จำนวนครั้งที่พบปัญหาแต่ละเครื่อง (Top 15)</h3>
+                <canvas id="chartByMachine"></canvas>
             </div>
         </div>
     </div>
 </div>
 
-<!-- EDIT MODAL -->
-<div id="editModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl modal-box">
-        <div class="p-5 border-b flex justify-between items-center">
-            <h2 class="text-xl font-bold">✏️ แก้ไขรายงานปัญหา</h2>
-            <button id="closeEditX" type="button" class="text-gray-500 hover:text-red-500 text-xl"><i class="fa fa-times"></i></button>
-        </div>
-        <div class="p-5 space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label class="block text-sm font-medium mb-1">ผู้แจ้ง</label><input id="editReporter" class="w-full px-3 py-2 border rounded-lg"></div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">เครื่อง</label>
-                    <select id="editMachine" class="w-full px-3 py-2 border rounded-lg"></select>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">ประเภทปัญหา</label>
-                <select id="editProblemType" class="w-full px-3 py-2 border rounded-lg"></select>
-            </div>
-            <div><label class="block text-sm font-medium mb-1">รายละเอียดปัญหา</label><textarea id="editProblemDetail" rows="5" class="w-full px-3 py-2 border rounded-lg"></textarea></div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label class="block text-sm font-medium mb-1">ผู้รับผิดชอบ / ช่าง</label><input id="editTechnician" class="w-full px-3 py-2 border rounded-lg"></div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">สถานะ</label>
-                    <select id="editStatus" class="w-full px-3 py-2 border rounded-lg">
-                        <option value="รอดำเนินการ">⏳ รอดำเนินการ</option>
-                        <option value="กำลังแก้ไข">🔧 กำลังแก้ไข</option>
-                        <option value="เสร็จสิ้น">✅ เสร็จสิ้น</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        <div class="p-5 border-t flex justify-end gap-2">
-            <button id="cancelEditBtn" type="button" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">ยกเลิก</button>
-            <button id="saveEditBtn" type="button" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"><i class="fa fa-save mr-1"></i> บันทึกการแก้ไข</button>
-        </div>
-    </div>
-</div>
+<!-- ===== แจ้งเตือน ===== -->
+<div id="toast" class="fixed bottom-6 right-6 bg-green-600 text-white px-6 py-3 rounded-lg shadow-2xl transform translate-y-full opacity-0 transition-all z-50"></div>
 
-<!-- HISTORY MODAL -->
-<div id="historyModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl modal-box">
-        <div class="p-5 border-b flex justify-between items-center">
-            <h2 id="historyTitle" class="text-xl font-bold">ประวัติการแก้ไข</h2>
-            <button id="closeHistoryX" type="button" class="text-gray-500 hover:text-red-500 text-xl"><i class="fa fa-times"></i></button>
-        </div>
-        <div id="historyContent" class="p-5"></div>
-        <div class="p-5 border-t text-right">
-            <button id="closeHistoryBottomBtn" type="button" class="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">ปิด</button>
-        </div>
-    </div>
-</div>
+<script>
+// ===== ตัวแปรกลาง =====
+let reports = [];
+let listener = null;
+let chartType, chartStatus, chartMachine;
+let selectedImageBase64 = null; // เก็บรูปเป็น Base64
 
-<!-- REPORT IMAGES MODAL -->
-<div id="imagesModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 modal-backdrop">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl modal-box">
-        <div class="p-4 border-b flex justify-between items-center gap-3">
-            <h2 id="imagesTitle" class="text-lg font-bold">รูปภาพในใบงาน</h2>
-            <button id="closeImagesX" type="button" class="text-gray-500 hover:text-red-500 text-xl" aria-label="ปิด"><i class="fa fa-times"></i></button>
-        </div>
-        <div id="imagesContent" class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-        <div class="p-4 border-t text-right">
-            <button id="closeImagesBottomBtn" type="button" class="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">ปิด</button>
-        </div>
-    </div>
-</div>
+// ===== รายการเครื่อง 54 เครื่อง =====
+const MACHINES = Array.from({length:54}, (_,i) => {
+    const num = String(i+1).padStart(2,'0');
+    return `Router-${num}`;
+});
 
-<!-- TOAST NOTIFICATION -->
-<div id="toast" role="status" aria-live="polite" class="fixed bottom-5 right-5 left-5 sm:left-auto sm:max-w-md bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl transform translate-y-full opacity-0 transition-all duration-300 z-[9999] text-center"></div>
+// ===== ประเภทปัญหา =====
+const PROBLEM_TYPES = [
+    'เครื่องไม่ทำงาน','เสียงผิดปกติ','ความผิดพลาดของชิ้นงาน',
+    'ระบบไฟฟ้า','ระบบไฮดรอลิก','อะไหล่ชำรุด','การตั้งค่าเครื่อง','อื่นๆ'
+];
 
+// ===== เริ่มทำงานเมื่อหน้าโหลด =====
+document.addEventListener('DOMContentLoaded', function() {
+    initDate();
+    initMachineOptions();
+    initMonthOptions();
+    initTabs();
+    initImageUpload();
+    subscribeData();
+    initCharts();
+});
+
+function initDate() {
+    const now = new Date();
+    document.getElementById('currentDate').textContent = 'วันที่: ' + now.toLocaleDateString('th-TH', {
+        weekday:'long', year:'numeric', month:'long', day:'numeric'
+    });
+}
+
+function initMachineOptions() {
+    const sel1 = document.getElementById('machineId');
+    const sel2 = document.getElementById('filterMachine');
+    const sel3 = document.getElementById('chartMachine');
+    MACHINES.forEach(m => {
+        sel1.innerHTML += `<option value="${m}">${m}</option>`;
+        sel2.innerHTML += `<option value="${m}">${m}</option>`;
+        sel3.innerHTML += `<option value="${m}">${m}</option>`;
+    });
+}
+
+function initMonthOptions() {
+    const sel = document.getElementById('chartMonth');
+    const now = new Date();
+    for (let i=0; i<12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        const val = d.toISOString().slice(0,7);
+        const label = d.toLocaleDateString('th-TH', {month:'long', year:'numeric'});
+        sel.innerHTML += `<option value="${val}">${label}</option>`;
+    }
+}
+
+// ===== สลับแท็บ =====
+function initTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tabId = this.dataset.tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+            this.classList.add('tab-active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            if (tabId === 'charts') updateAllCharts();
+        });
+    });
+}
+
+// ===== 📸 จัดการเลือกรูป & แปลงเป็น Base64 =====
+function initImageUpload() {
+    const fileInput = document.getElementById('problemImage');
+    const previewArea = document.getElementById('previewArea');
+    const previewImg = document.getElementById('previewImg');
+    const removeBtn = document.getElementById('removeImage');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // ตรวจสอบชนิดไฟล์
+        if (!file.type.startsWith('image/')) {
+            showToast('❌ กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+            return;
+        }
+        // ตรวจสอบขนาด ไม่เกิน 5MB
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('❌ ขนาดรูปต้องไม่เกิน 5MB');
+            return;
+        }
+
+        // แปลงรูปเป็น Base64
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            selectedImageBase64 = e.target.result;
+            previewImg.src = selectedImageBase64;
+            previewArea.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // ลบรูป
+    removeBtn.addEventListener('click', function() {
+        selectedImageBase64 = null;
+        previewImg.src = '';
+        previewArea.style.display = 'none';
+        fileInput.value = '';
+    });
+}
+
+// ===== เปิดรูปขนาดใหญ่ =====
+function openModal(imgSrc) {
+    document.getElementById('modalImg').src = imgSrc;
+    document.getElementById('imageModal').classList.add('show');
+}
+
+function closeModal() {
+    document.getElementById('imageModal').classList.remove('show');
+}
+
+// ===== บันทึกข้อมูล =====
+async function submitReport() {
+    const btn = document.getElementById('submitBtn');
+    
+    // รับค่าจากฟอร์ม
+    const reporter = document.getElementById('reporter').value.trim();
+    const machineId = document.getElementById('machineId').value;
+    const problemType = document.getElementById('problemType').value;
+    const problemDetail = document.getElementById('problemDetail').value.trim();
+    const technician = document.getElementById('technician').value.trim() || '-';
+    const status = document.getElementById('status').value;
+
+    // ตรวจสอบ
+    if (!reporter || !machineId || !problemType || !problemDetail) {
+        showToast('⚠️ กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> กำลังบันทึก...';
+
+    try {
+        const reportRef = db.ref('machineReports').push();
+        const reportId = reportRef.key;
+
+        const data = {
+            id: reportId,
+            reporter: reporter,
+            machineId: machineId,
+            problemType: problemType,
+            problemDetail: problemDetail,
+            technician: technician,
+            status: status,
+            image: selectedImageBase64, // เก็บรูป Base64
+            date: new Date().toISOString().slice(0,10),
+            time: new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+            timestamp: new Date().toISOString()
+        };
+
+        await reportRef.set(data);
+        showToast('✅ บันทึกข้อมูลสำเร็จ');
+        
+        // เคลียร์ฟอร์ม
+        document.getElementById('reportForm').reset();
+        selectedImageBase64 = null;
+        document.getElementById('previewArea').style.display = 'none';
+        document.getElementById('previewImg').src = '';
+
+    } catch(err) {
+        console.error(err);
+        showToast('❌ ผิดพลาด: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-paper-plane mr-2"></i> บันทึกข้อมูล';
+    }
+}
+
+// ===== รับข้อมูลแบบเรียลไทม์ =====
+function subscribeData() {
+    if (listener) listener.off();
+    listener = db.ref('machineReports').on('value', snap => {
+        const data = snap.val() || {};
+        reports = Object.entries(data).map(([id, val]) => ({id, ...val}))
+            .sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+        renderList();
+        updateAllCharts();
+    });
+    
+    // ตัวกรอง
+    ['filterDate','filterMachine','filterStatus'].forEach(id => {
+        document.getElementById(id).addEventListener('change', renderList);
+    });
+
+    // ส่งออก CSV
+    document.getElementById('btnExport').addEventListener('click', exportCSV);
+    document.getElementById('btnRefreshChart').addEventListener('click', updateAllCharts);
+}
+
+// ===== แสดงรายการ =====
+function renderList() {
+    const dateF = document.getElementById('filterDate').value;
+    const machF = document.getElementById('filterMachine').value;
+    const statF = document.getElementById('filterStatus').value;
+    
+    let filtered = reports;
+    if (dateF) filtered = filtered.filter(r => r.date === dateF);
+    if (machF) filtered = filtered.filter(r => r.machineId === machF);
+    if (statF) filtered = filtered.filter(r => r.status === statF);
+
+    const tbody = document.getElementById('reportList');
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">ไม่พบข้อมูลรายงาน</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(r => {
+        const cls = r.status==='รอดำเนินการ'?'status-wait':r.status==='กำลังแก้ไข'?'status-fixing':'status-done';
+        const imageCell = r.image 
+            ? `<img src="${r.image}" class="preview-img w-16 h-16 object-cover" onclick="openModal('${r.image}')" alt="รูปปัญหา">`
+            : '<span class="text-gray-300 text-xs">ไม่มีรูป</span>';
+        
+        return `
+        <tr class="border-t hover:bg-gray-50">
+            <td class="px-3 py-2 whitespace-nowrap text-xs">${r.date}<br>${r.time}</td>
+            <td class="px-3 py-2 font-medium text-sm">${r.machineId}</td>
+            <td class="px-3 py-2 text-xs">
+                <div class="font-medium">${r.problemType}</div>
+                <div class="text-gray-500">ผู้แจ้ง: ${r.reporter}</div>
+                <div class="text-gray-400 truncate max-w-[150px]">${r.problemDetail.substring(0,25)}${r.problemDetail.length>25?'...':''}</div>
+            </td>
+            <td class="px-3 py-2 text-center">${imageCell}</td>
+            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${r.status}</span></td>
+            <td class="px-3 py-2 text-center">
+                <button data-id="${r.id}" class="text-red-500 hover:text-red-700 text-xs">
+                    <i class="fa fa-trash"></i> ลบ
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+
+    // ปุ่มลบ
+    tbody.querySelectorAll('button[data-id]').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            if (confirm('ต้องการลบรายการนี้?')) {
+                await db.ref('machineReports/'+this.dataset.id).remove();
+                showToast('🗑️ ลบข้อมูลแล้ว');
+            }
+        });
+    });
+}
+
+// ===== ส่งออก CSV =====
+function exportCSV() {
+    if (!reports.length) return showToast('⚠️ ไม่มีข้อมูล');
+    const headers = ['วันที่','เวลา','เครื่อง','ประเภทปัญหา','รายละเอียด','ผู้แจ้ง','ผู้รับผิดชอบ','สถานะ'];
+    const rows = reports.map(r => [
+        r.date, r.time, r.machineId, r.problemType, 
+        `"${r.problemDetail.replace(/"/g,'""')}"`, r.reporter, 
+        r.technician, r.status
+    ]);
+    const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `รายงานปัญหาเครื่องจักร_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✅ ดาวน์โหลดสำเร็จ');
+}
+
+// ===== กราฟ =====
+function initCharts() {
+    const ct1 = document.getElementById('chartByType').getContext('2d');
+    const ct2 = document.getElementById('chartByStatus').getContext('2d');
+    const ct3 = document.getElementById('chartByMachine').getContext('2d');
+    
+    chartType = new Chart(ct1, {type:'bar', data:{labels:[],datasets:[]}, options:{responsive:true}});
+    chartStatus = new Chart(ct2, {type:'doughnut', data:{labels:[],datasets:[]}, options:{responsive:true}});
+    chartMachine = new Chart(ct3, {type:'bar', data:{labels:[],datasets:[]}, options:{responsive:true}});
+}
+
+function updateAllCharts() {
+    const monthSel = document.getElementById('chartMonth').value;
+    const machSel = document.getElementById('chartMachine').value;
+    
+    let filtered = reports;
+    if (monthSel) filtered = filtered.filter(r => r.date.slice(0,7) === monthSel);
+    if (machSel) filtered = filtered.filter(r => r.machineId === machSel);
+
+    // กราฟ 1: ประเภทปัญหา
+    const typeCount = {};
+    PROBLEM_TYPES.forEach(t => typeCount[t] = 0);
+    filtered.forEach(r => typeCount[r.problemType]++);
+    chartType.data.labels = Object.keys(typeCount);
+    chartType.data.datasets = [{
+        label:'จำนวนครั้ง',
+        data:Object.values(typeCount),
+        backgroundColor:'#3b82f6'
+    }];
+    chartType.update();
+
+    // กราฟ 2: สถานะ
+    const statCount = {'รอดำเนินการ':0, 'กำลังแก้ไข':0, 'เสร็จสิ้น':0};
+    filtered.forEach(r => statCount[r.status]++);
+    chartStatus.data.labels = Object.keys(statCount);
+    chartStatus.data.datasets = [{
+        data:Object.values(statCount),
+        backgroundColor:['#f59e0b','#3b82f6','#10b981']
+    }];
+    chartStatus.update();
+
+    // กราฟ 3: แต่ละเครื่อง Top 15
+    const machCount = {};
+    filtered.forEach(r => machCount[r.machineId] = (machCount[r.machineId]||0)+1);
+    const sorted = Object.entries(machCount).sort((a,b)=>b[1]-a[1]).slice(0,15);
+    chartMachine.data.labels = sorted.map(x=>x[0]);
+    chartMachine.data.datasets = [{
+        label:'จำนวนครั้งที่มีปัญหา',
+        data:sorted.map(x=>x[1]),
+        backgroundColor:'#ef4444'
+    }];
+    chartMachine.update();
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.remove('translate-y-full','opacity-0');
+    setTimeout(() => t.classList.add('translate-y-full','opacity-0'), 3500);
+}
+</script>
 </body>
 </html>
