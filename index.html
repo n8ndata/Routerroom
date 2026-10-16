@@ -3,9 +3,10 @@
   <head>
     <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ระบบรายงานปัญหาเครื่องจักร — แผนกเราเตอร์</title>
+        <title>ROUTER ROOM — Protected</title>
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
         <script src="https://cdn.tailwindcss.com"></script>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
           <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
@@ -49,6 +50,7 @@ const firebaseConfig = {
 };
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
 </script>
           <div id="loginScreen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:linear-gradient(135deg,#0f172a,#1e3a5f 55%,#0f172a)">
             <div class="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
@@ -315,10 +317,20 @@ let machineStatus = {};
 let lastUpdateTime = 0;
 const DEBOUNCE_DELAY = 150;
 
+// กำหนดชื่อเครื่องตามกลุ่ม โดยคงหมายเลขเครื่องเดิม
+function machineNameForNumber(n) {
+    if ((n >= 10 && n <= 27) || (n >= 43 && n <= 54)) return `TONGTAI M/C ${n}`;
+    if (n >= 33 && n <= 42) return `ROUTER_VIA M/C ${n}`;
+    return `Router-${String(n).padStart(2, '0')}`;
+}
+function normalizeMachineName(value) {
+    const match = String(value || '').match(/(\d+)\s*$/);
+    return match ? machineNameForNumber(Number(match[1])) : value;
+}
 const MACHINES = [];
 for (let i = 1; i <= 54; i++) {
     if ((i >= 1 && i <= 9) || (i >= 28 && i <= 32)) continue;
-    MACHINES.push(`Router-${String(i).padStart(2, '0')}`);
+    MACHINES.push(machineNameForNumber(i));
 }
 
 const PROBLEM_TYPES = [
@@ -340,7 +352,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnRefreshChart').addEventListener('click', updateAllCharts);
     ['filterDate','filterMachine','filterStatus'].forEach(id => document.getElementById(id).addEventListener('change', renderList));
     ['chartMonth','chartMachine'].forEach(id => document.getElementById(id).addEventListener('change', updateAllCharts));
-    subscribeData();
+    // เข้าสู่ระบบ Firebase แบบ Anonymous เพื่อให้ใช้ Security Rules ที่กำหนด auth != null ได้
+    auth.signInAnonymously().then(() => {
+        subscribeData();
+    }).catch(err => {
+        const el = document.getElementById('connectionStatus');
+        if (el) { el.textContent = '● ยังไม่ได้เปิด Anonymous Authentication ใน Firebase'; el.className = 'text-xs mt-1 text-red-600'; }
+        showToast('เชื่อมต่อระบบไม่ได้ กรุณาตรวจสอบ Firebase Authentication');
+        console.error('Firebase anonymous authentication failed:', err);
+    });
     
     let searchTimer;
     document.getElementById('searchMachine').addEventListener('input', function() {
@@ -565,8 +585,8 @@ function subscribeData() {
     db.ref('.info/connected').on('value', snap => { const el=document.getElementById('connectionStatus'); const ok=snap.val()===true; el.textContent=ok?'● เชื่อมต่อฐานข้อมูลแล้ว':'● ขาดการเชื่อมต่อฐานข้อมูล'; el.className='text-xs mt-1 '+(ok?'text-green-600':'text-red-600'); });
     listener = db.ref('machineReports').limitToLast(200).on('value', snap => {
         const data = snap.val() || {};
-        reports = Object.entries(data).map(([id, val]) => ({id, ...val}))
-            .sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+        reports = Object.entries(data).map(([id, val]) => ({id, ...val, machineId: normalizeMachineName(val.machineId)}))
+            .sort((a,b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
         
         updateMachineStatus();
         renderList();
