@@ -2,15 +2,15 @@
 <html lang="th">
   <head>
     <base href="https://n8ndata.github.io/Routerroom/">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบรายงานปัญหาเครื่องจักร — แผนกเราเตอร์</title>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
-    <style>
+      <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>ระบบรายงานปัญหาเครื่องจักร — แผนกเราเตอร์</title>
+          <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+          <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+            <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+            <style>
         * { box-sizing: border-box; }
         .tab-active { background-color: #2563eb; color: white; }
         .status-wait { background-color: #fef3c7; color: #92400e; border-left: 4px solid #f59e0b; }
@@ -24,6 +24,8 @@
         .machine-warning { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
         .machine-danger { background-color: #fee2e2; border-left: 4px solid #ef4444; }
         canvas { max-height: 280px; }
+        /* กราฟแท่งประเภทปัญหา: เลื่อนภายในกรอบ และไม่จำกัดความสูง canvas */
+        .problem-chart-scroll { max-height: 460px; overflow-y: auto; overflow-x: hidden; padding: 8px; overscroll-behavior: contain; }
         .preview-img { max-height: 80px; border-radius: 6px; cursor: pointer; transition: transform 0.2s; }
         .preview-img:hover { transform: scale(1.05); }
         .report-thumbnail { max-width: 60px; max-height: 45px; border-radius: 4px; cursor: pointer; }
@@ -36,9 +38,9 @@
         .modal-content { background: white; border-radius: 10px; max-width: 480px; width: 90%; max-height: 85vh; overflow-y: auto; }
         button, select, input { font-family: inherit; }
     </style>
-  </head>
-  <body class="bg-gray-50 min-h-screen">
-    <script>
+          </head>
+          <body class="bg-gray-50 min-h-screen">
+            <script>
 const firebaseConfig = {
   apiKey: "AIzaSyAHXyYU4UzsPWxBRUpfJCRqs6ivX6X3i-E",
   authDomain: "leave-system-router.firebaseapp.com",
@@ -51,303 +53,313 @@ const firebaseConfig = {
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 </script>
-    <div id="loginScreen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:linear-gradient(135deg,#0f172a,#1e3a5f 55%,#0f172a)">
-      <div class="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
-        <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-900 text-white text-3xl">🏭</div>
-        <p class="text-xs font-semibold tracking-[.25em] text-blue-700">ROUTER ROOM</p>
-        <h1 class="mt-2 text-2xl font-bold text-slate-800">ระบบรายงานปัญหาเครื่องจักร</h1>
-        <p class="mt-2 mb-6 text-sm text-slate-500">ติดตามปัญหาและเวลาหยุดเครื่องจักร</p>
-        <button type="button" id="loginButton" class="w-full rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800">เข้าสู่ระบบ</button>
-        <p class="mt-4 text-xs text-slate-400">ไม่ต้องกรอกชื่อผู้ใช้หรือรหัสผ่าน</p>
-      </div>
-    </div>
-    <div id="statusEditModal" class="modal" onclick="if(event.target===this) closeStatusEditor()">
-      <div class="modal-content p-5" onclick="event.stopPropagation()">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-bold">แก้ไขรายงาน / สถานะซ่อม</h3>
-          <button type="button" onclick="closeStatusEditor()" class="text-gray-400 text-2xl">&times;</button>
-        </div>
-        <input type="hidden" id="editReportId">
-        <div class="space-y-3">
-          <div>
-            <label class="block text-sm mb-1">สถานะ</label>
-            <select id="editStatus" class="w-full border rounded-lg px-3 py-2">
-              <option value="รอดำเนินการ">⏳ รอดำเนินการ</option>
-              <option value="กำลังแก้ไข">🔧 กำลังแก้ไข</option>
-              <option value="เสร็จสิ้น">✅ เสร็จสิ้น</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm mb-1">ช่างผู้รับผิดชอบ</label>
-            <input id="editTechnician" class="w-full border rounded-lg px-3 py-2" placeholder="ชื่อช่าง">
-          </div>
-          <div>
-            <label class="block text-sm mb-1">ผลการแก้ไข / หมายเหตุ</label>
-            <textarea id="editRepairNote" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="ระบุการซ่อมและผลการทดสอบ"></textarea>
-          </div>
-          <div>
-            <label class="block text-sm mb-1">เวลาเริ่มหยุดเครื่อง</label>
-            <input type="datetime-local" id="editDowntimeStart" class="w-full border rounded-lg px-3 py-2">
-          </div>
-          <div>
-            <label class="block text-sm mb-1">เวลาสิ้นสุด / กลับมาใช้งาน</label>
-            <input type="datetime-local" id="editDowntimeEnd" class="w-full border rounded-lg px-3 py-2">
-          </div>
-          <p id="editDowntimePreview" class="text-sm text-blue-700 bg-blue-50 rounded p-2">ระยะเวลาหยุด: —</p>
-          <div class="flex gap-2">
-            <button type="button" onclick="saveStatusEdit()" id="saveStatusBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2">บันทึกการแก้ไข</button>
-            <button type="button" onclick="closeStatusEditor()" class="px-4 border rounded-lg">ยกเลิก</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="machineModal" class="modal" onclick="if(event.target === this) closeMachineModal()">
-      <div class="modal-content p-5" onclick="event.stopPropagation()">
-        <div class="flex justify-between items-center mb-4">
-          <h3 id="modalMachineName" class="text-lg font-bold">Router-00</h3>
-          <button onclick="closeMachineModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-        </div>
-        <div id="modalMachineContent">
-        </div>
-      </div>
-    </div>
-    <div id="imageModal" class="image-modal" onclick="closeModal()">
-      <img id="modalImg" src="" alt="รูปภาพ">
-      <button class="absolute top-4 right-4 text-white text-2xl hover:text-gray-300">&times;</button>
-    </div>
-    <div class="max-w-7xl mx-auto p-4 pb-8">
-      <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
-        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
-          <div>
-            <h1 class="text-xl font-bold text-gray-800">🏭 ระบบรายงานปัญหาเครื่องจักร</h1>
-            <p class="text-sm text-gray-500">แผนกเราเตอร์ — ทั้งหมด <span id="totalMachines">45</span> เครื่อง</p>
-          </div>
-          <div class="text-right">
-            <p class="text-sm text-blue-600" id="currentDate">
-            </p>
-            <p id="connectionStatus" class="text-xs text-green-600 mt-1">
-              <i class="fa fa-circle text-xs mr-1">
-              </i> พร้อมใช้งาน
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="flex flex-wrap gap-2 mb-4">
-        <button class="tab-btn px-3 py-2 rounded-lg border text-sm tab-active" data-tab="dashboard">📊 แดชบอร์ด</button>
-        <button class="tab-btn px-3 py-2 rounded-lg border text-sm bg-white" data-tab="form">📝 บันทึกปัญหา</button>
-        <button class="tab-btn px-3 py-2 rounded-lg border text-sm bg-white" data-tab="list">📋 ประวัติรายงาน</button>
-        <button class="tab-btn px-3 py-2 rounded-lg border text-sm bg-white" data-tab="charts">📈 กราฟสรุป</button>
-      </div>
-      <div id="tab-dashboard" class="tab-content">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <button type="button" onclick="openDashboardDetails('all')" aria-label="ดูรายละเอียดรายงานทั้งหมด" class="w-full text-left bg-white rounded-xl shadow-sm p-3 stat-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <div class="text-2xl font-bold text-blue-600" id="statTotal">40</div>
-            <div class="text-xs text-gray-500">เครื่องทั้งหมด</div><div class="text-[10px] text-blue-500 mt-1">กดเพื่อดูรายละเอียด ↗</div>
-          </button>
-          <button type="button" onclick="openDashboardDetails('waiting')" aria-label="ดูรายการรอดำเนินการ" class="w-full text-left bg-white rounded-xl shadow-sm p-3 stat-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400">
-            <div class="text-2xl font-bold text-amber-500" id="statWaiting">0</div>
-            <div class="text-xs text-gray-500">รอดำเนินการ</div><div class="text-[10px] text-amber-600 mt-1">กดเพื่อดูรายละเอียด ↗</div>
-          </button>
-          <button type="button" onclick="openDashboardDetails('fixing')" aria-label="ดูรายการกำลังแก้ไข" class="w-full text-left bg-white rounded-xl shadow-sm p-3 stat-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <div class="text-2xl font-bold text-blue-500" id="statFixing">0</div>
-            <div class="text-xs text-gray-500">กำลังแก้ไข</div><div class="text-[10px] text-blue-500 mt-1">กดเพื่อดูรายละเอียด ↗</div>
-          </button>
-          <button type="button" onclick="openDashboardDetails('issues')" aria-label="ดูรายการเครื่องที่มีปัญหา" class="w-full text-left bg-white rounded-xl shadow-sm p-3 stat-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400">
-            <div class="text-2xl font-bold text-green-500" id="statIssues">0</div>
-            <div class="text-xs text-gray-500">มีปัญหา</div><div class="text-[10px] text-green-600 mt-1">กดเพื่อดูรายละเอียด ↗</div>
-          </button>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-3 mb-4">
-          <div class="flex flex-wrap gap-2 items-center">
-            <span class="text-sm font-medium">🔍 กรอง:</span>
-            <select id="filterMachineStatus" class="px-2 py-1.5 border rounded text-sm">
-              <option value="all">ทุกเครื่อง</option>
-              <option value="has-problem">เฉพาะมีปัญหา</option>
-              <option value="รอดำเนินการ">รอดำเนินการ</option>
-              <option value="กำลังแก้ไข">กำลังแก้ไข</option>
-              <option value="เสร็จสิ้น">ปกติ</option>
-            </select>
-            <input type="text" id="searchMachine" placeholder="ค้นหา..."
-            class="px-2 py-1.5 border rounded text-sm flex-1 min-w-[120px] max-w-[150px]">
-          </div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-4">
-          <h3 class="text-base font-medium mb-3">🔧 สถานะเครื่องจักร (คลิกดูรายละเอียด)</h3>
-          <div id="machineGrid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-9 gap-2">
-            <div class="col-span-full text-center py-6 text-gray-400 text-sm">กำลังโหลด...</div>
-          </div>
-        </div>
-      </div>
-      <div id="tab-form" class="tab-content hidden">
-        <div class="bg-white rounded-xl shadow-sm p-5">
-          <h2 class="text-lg font-bold mb-4">📝 แจ้งปัญหาเครื่องจักร</h2>
-          <form id="reportForm" class="space-y-4" onsubmit="return false;">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">👤 ผู้แจ้ง</label>
-                <input type="text" id="reporter" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ชื่อ">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">🔧 เครื่องจักร</label>
-                <select id="machineId" required class="w-full px-3 py-2 border rounded-lg text-sm">
-                  <option value="">-- เลือกเครื่อง --</option>
-                </select>
+            <div id="loginScreen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:linear-gradient(135deg,#0f172a,#1e3a5f 55%,#0f172a)">
+              <div class="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
+                <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-900 text-white text-3xl">🏭</div>
+                <p class="text-xs font-semibold tracking-[.25em] text-blue-700">ROUTER ROOM</p>
+                <h1 class="mt-2 text-2xl font-bold text-slate-800">ระบบรายงานปัญหาเครื่องจักร</h1>
+                <p class="mt-2 mb-6 text-sm text-slate-500">ติดตามปัญหาและเวลาหยุดเครื่องจักร</p>
+                <button type="button" id="loginButton" class="w-full rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800">เข้าสู่ระบบ</button>
+                <p class="mt-4 text-xs text-slate-400">ไม่ต้องกรอกชื่อผู้ใช้หรือรหัสผ่าน</p>
               </div>
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">⚠️ ประเภทปัญหา</label>
-              <select id="problemType" required class="w-full px-3 py-2 border rounded-lg text-sm">
-                <option value="">-- เลือก --</option>
-                <option value="เครื่องไม่ทำงาน">🔴 เครื่องไม่ทำงาน</option>
-                <option value="เสียงผิดปกติ">🔊 เสียงผิดปกติ</option>
-                <option value="ความผิดพลาดของชิ้นงาน">📐 ความผิดพลาดของชิ้นงาน</option>
-                <option value="ระบบไฟฟ้า">⚡ ระบบไฟฟ้า</option>
-                <option value="ระบบไฮดรอลิก">💧 ระบบไฮดรอลิก/ลม</option>
-                <option value="Spindel Overload">⚠️ Spindel Overload</option>
-                <option value="Spindel หัวไหล">🔧 Spindel หัวไหล</option>
-                <option value="Sensor NG">📡 Sensor NG</option>
-                <option value="อะไหล่ชำรุด">🔩 อะไหล่ชำรุด</option>
-                <option value="การตั้งค่าเครื่อง">⚙️ การตั้งค่า</option>
-                <option value="อื่นๆ">📝 อื่นๆ</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">📝 รายละเอียด</label>
-              <textarea id="problemDetail" rows="3" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="อาการ/สาเหตุ..."></textarea>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">📸 รูปภาพประกอบ (ไม่เกิน 5MB)</label>
-              <input type="file" id="problemImage" accept="image/*" class="w-full px-3 py-2 border rounded-lg text-sm">
-              <div id="previewArea" class="preview-area">
-                <img id="previewImg" class="preview-img" src="" alt="ตัวอย่างรูป" onclick="openModal(this.src)">
-                <button type="button" id="removeImage" class="ml-2 text-red-500 text-sm">
-                  <i class="fa fa-times">
-                  </i> ลบรูป
-                </button>
-              </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">🔧 ผู้รับผิดชอบ</label>
-                <input type="text" id="technician" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ชื่อช่าง (ถ้ามี)">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">📌 สถานะ</label>
-                <select id="status" class="w-full px-3 py-2 border rounded-lg text-sm">
-                  <option value="รอดำเนินการ">⏳ รอดำเนินการ</option>
-                  <option value="กำลังแก้ไข">🔧 กำลังแก้ไข</option>
-                  <option value="เสร็จสิ้น">✅ เสร็จสิ้น</option>
-                </select>
-              </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">🕒 เวลาเริ่มหยุดเครื่อง</label>
-                <input type="datetime-local" id="downtimeStart" class="w-full px-3 py-2 border rounded-lg text-sm">
-                <p class="text-xs text-gray-500 mt-1">เว้นว่างเพื่อใช้เวลาบันทึกรายงาน</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">🟢 เวลาสิ้นสุด / กลับมาใช้งาน</label>
-                <input type="datetime-local" id="downtimeEnd" class="w-full px-3 py-2 border rounded-lg text-sm">
-                <p class="text-xs text-gray-500 mt-1">เว้นว่างหากยังหยุดอยู่</p>
-              </div>
-              <div id="downtimePreview" class="md:col-span-2 text-sm text-blue-800">ระยะเวลาหยุด: —</div>
-            </div>
-            <button type="button" id="submitBtn" onclick="submitReport()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
-              <i class="fa fa-save mr-1">
-              </i> บันทึกข้อมูล
-            </button>
-          </form>
-        </div>
-      </div>
-      <div id="tab-list" class="tab-content hidden">
-        <div class="bg-white rounded-xl shadow-sm p-3 mb-3">
-          <div class="flex flex-wrap gap-2 items-center justify-between">
-            <h2 class="text-lg font-bold">📋 ประวัติรายงาน</h2>
-            <div class="flex flex-wrap gap-2">
-              <input type="date" id="filterDate" class="px-2 py-1.5 border rounded text-sm">
-              <select id="filterMachine" class="px-2 py-1.5 border rounded text-sm">
-                <option value="">-- ทุกเครื่อง --</option>
-              </select>
-              <select id="filterStatus" class="px-2 py-1.5 border rounded text-sm">
-                <option value="">-- ทุกสถานะ --</option>
-                <option value="รอดำเนินการ">รอดำเนินการ</option>
-                <option value="กำลังแก้ไข">กำลังแก้ไข</option>
-                <option value="เสร็จสิ้น">เสร็จสิ้น</option>
-              </select>
-              <button id="btnExport" class="px-3 py-1.5 bg-green-600 text-white rounded text-sm">
-                <i class="fa fa-download">
-                </i> CSV
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="w-full text-xs">
-              <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                  <th class="px-2 py-2 text-left">วันที่</th>
-                  <th class="px-2 py-2 text-left">เครื่อง</th>
-                  <th class="px-2 py-2 text-left">ปัญหา</th>
-                  <th class="px-2 py-2 text-center">รูป</th>
-                  <th class="px-2 py-2 text-left">สถานะ</th>
-                  <th class="px-2 py-2 text-center">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody id="reportList">
-                <tr>
-                  <td colspan="6" class="px-4 py-6 text-center text-gray-400">กำลังโหลด...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div id="tab-charts" class="tab-content hidden">
-        <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
-          <h2 class="text-lg font-bold mb-3">📈 กราฟสรุป</h2>
-          <div class="flex flex-wrap gap-3 mb-4">
-            <select id="chartMonth" class="px-3 py-2 border rounded text-sm">
-              <option value="">-- ทุกเดือน --</option>
-            </select>
-            <select id="chartMachine" class="px-3 py-2 border rounded text-sm">
-              <option value="">-- ทุกเครื่อง --</option>
-            </select>
-            <button id="btnRefreshChart" class="px-3 py-2 bg-blue-600 text-white rounded text-sm">
-              <i class="fa fa-sync">
-              </i> อัปเดต
-            </button>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="bg-white rounded-xl shadow-sm p-4">
-            <h3 class="text-sm font-medium mb-2">📊 ประเภทปัญหา</h3>
-            <canvas id="chartByType" height="200">
-            </canvas>
-          </div>
-          <div class="bg-white rounded-xl shadow-sm p-4">
-            <h3 class="text-sm font-medium mb-2">📊 สถานะการดำเนินงาน</h3>
-            <canvas id="chartByStatus" height="200">
-            </canvas>
-          </div>
-          <div class="bg-white rounded-xl shadow-sm p-4 lg:col-span-2">
-            <h3 class="text-sm font-medium mb-2">🔧 จำนวนปัญหาแต่ละเครื่อง (Top 10)</h3>
-            <canvas id="chartByMachine" height="220">
-            </canvas>
-          </div>
-          <div class="bg-white rounded-xl shadow-sm p-4 lg:col-span-2">
-            <h3 class="text-sm font-medium mb-2">⏱️ เวลาหยุดสะสมรายเครื่อง (Top 10 ชั่วโมง)</h3>
-            <p class="text-xs text-gray-500 mb-2">รายงานที่ยังไม่สิ้นสุดจะนับถึงเวลาปัจจุบัน</p>
-            <canvas id="chartDowntime" height="240">
-            </canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="toast" class="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm transition-all duration-300 transform translate-y-full opacity-0 z-50">
-    </div>
-    <script>
+            <div id="statusEditModal" class="modal" onclick="if(event.target===this) closeStatusEditor()">
+              <div class="modal-content p-5" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-lg font-bold">แก้ไขรายงาน / สถานะซ่อม</h3>
+                  <button type="button" onclick="closeStatusEditor()" class="text-gray-400 text-2xl">&times;</button>
+                </div>
+                <input type="hidden" id="editReportId">
+                  <div class="space-y-3">
+                    <div>
+                      <label class="block text-sm mb-1">สถานะ</label>
+                      <select id="editStatus" class="w-full border rounded-lg px-3 py-2">
+                        <option value="รอดำเนินการ">⏳ รอดำเนินการ</option>
+                        <option value="กำลังแก้ไข">🔧 กำลังแก้ไข</option>
+                        <option value="เสร็จสิ้น">✅ เสร็จสิ้น</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm mb-1">ช่างผู้รับผิดชอบ</label>
+                      <input id="editTechnician" class="w-full border rounded-lg px-3 py-2" placeholder="ชื่อช่าง">
+                      </div>
+                      <div>
+                        <label class="block text-sm mb-1">ผลการแก้ไข / หมายเหตุ</label>
+                        <textarea id="editRepairNote" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="ระบุการซ่อมและผลการทดสอบ">
+                        </textarea>
+                      </div>
+                      <div>
+                        <label class="block text-sm mb-1">เวลาเริ่มหยุดเครื่อง</label>
+                        <input type="datetime-local" id="editDowntimeStart" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                          <label class="block text-sm mb-1">เวลาสิ้นสุด / กลับมาใช้งาน</label>
+                          <input type="datetime-local" id="editDowntimeEnd" class="w-full border rounded-lg px-3 py-2">
+                          </div>
+                          <p id="editDowntimePreview" class="text-sm text-blue-700 bg-blue-50 rounded p-2">ระยะเวลาหยุด: —</p>
+                          <div class="flex gap-2">
+                            <button type="button" onclick="saveStatusEdit()" id="saveStatusBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2">บันทึกการแก้ไข</button>
+                            <button type="button" onclick="closeStatusEditor()" class="px-4 border rounded-lg">ยกเลิก</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div id="machineModal" class="modal" onclick="if(event.target === this) closeMachineModal()">
+                      <div class="modal-content p-5" onclick="event.stopPropagation()">
+                        <div class="flex justify-between items-center mb-4">
+                          <h3 id="modalMachineName" class="text-lg font-bold">Router-00</h3>
+                          <button onclick="closeMachineModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <div id="modalMachineContent">
+                        </div>
+                      </div>
+                    </div>
+                    <div id="imageModal" class="image-modal" onclick="closeModal()">
+                      <img id="modalImg" src="" alt="รูปภาพ">
+                        <button class="absolute top-4 right-4 text-white text-2xl hover:text-gray-300">&times;</button>
+                      </div>
+                      <div class="max-w-7xl mx-auto p-4 pb-8">
+                        <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
+                          <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+                            <div>
+                              <h1 class="text-xl font-bold text-gray-800">🏭 ระบบรายงานปัญหาเครื่องจักร</h1>
+                              <p class="text-sm text-gray-500">แผนกเราเตอร์ — ทั้งหมด <span id="totalMachines">45</span> เครื่อง</p>
+                            </div>
+                            <div class="text-right">
+                              <p class="text-sm text-blue-600" id="currentDate">
+                              </p>
+                              <p id="connectionStatus" class="text-xs text-green-600 mt-1">
+                                <i class="fa fa-circle text-xs mr-1">
+                                </i> พร้อมใช้งาน
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                          <button class="tab-btn px-3 py-2 rounded-lg border text-sm tab-active" data-tab="dashboard">📊 แดชบอร์ด</button>
+                          <button class="tab-btn px-3 py-2 rounded-lg border text-sm bg-white" data-tab="form">📝 บันทึกปัญหา</button>
+                          <button class="tab-btn px-3 py-2 rounded-lg border text-sm bg-white" data-tab="list">📋 ประวัติรายงาน</button>
+                          <button class="tab-btn px-3 py-2 rounded-lg border text-sm bg-white" data-tab="charts">📈 กราฟสรุป</button>
+                        </div>
+                        <div id="tab-dashboard" class="tab-content">
+                          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                            <button type="button" onclick="openDashboardDetails('all')" aria-label="ดูรายละเอียดรายงานทั้งหมด" class="w-full text-left bg-white rounded-xl shadow-sm p-3 stat-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400">
+                              <div class="text-2xl font-bold text-blue-600" id="statTotal">40</div>
+                              <div class="text-xs text-gray-500">เครื่องทั้งหมด</div>
+                              <div class="text-[10px] text-blue-500 mt-1">กดเพื่อดูรายละเอียด ↗</div>
+                            </button>
+                            <button type="button" onclick="openDashboardDetails('waiting')" aria-label="ดูรายการรอดำเนินการ" class="w-full text-left bg-white rounded-xl shadow-sm p-3 stat-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400">
+                              <div class="text-2xl font-bold text-amber-500" id="statWaiting">0</div>
+                              <div class="text-xs text-gray-500">รอดำเนินการ</div>
+                              <div class="text-[10px] text-amber-600 mt-1">กดเพื่อดูรายละเอียด ↗</div>
+                            </button>
+                            <button type="button" onclick="openDashboardDetails('fixing')" aria-label="ดูรายการกำลังแก้ไข" class="w-full text-left bg-white rounded-xl shadow-sm p-3 stat-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400">
+                              <div class="text-2xl font-bold text-blue-500" id="statFixing">0</div>
+                              <div class="text-xs text-gray-500">กำลังแก้ไข</div>
+                              <div class="text-[10px] text-blue-500 mt-1">กดเพื่อดูรายละเอียด ↗</div>
+                            </button>
+                            <button type="button" onclick="openDashboardDetails('issues')" aria-label="ดูรายการเครื่องที่มีปัญหา" class="w-full text-left bg-white rounded-xl shadow-sm p-3 stat-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400">
+                              <div class="text-2xl font-bold text-green-500" id="statIssues">0</div>
+                              <div class="text-xs text-gray-500">มีปัญหา</div>
+                              <div class="text-[10px] text-green-600 mt-1">กดเพื่อดูรายละเอียด ↗</div>
+                            </button>
+                          </div>
+                          <div class="bg-white rounded-xl shadow-sm p-3 mb-4">
+                            <div class="flex flex-wrap gap-2 items-center">
+                              <span class="text-sm font-medium">🔍 กรอง:</span>
+                              <select id="filterMachineStatus" class="px-2 py-1.5 border rounded text-sm">
+                                <option value="all">ทุกเครื่อง</option>
+                                <option value="has-problem">เฉพาะมีปัญหา</option>
+                                <option value="รอดำเนินการ">รอดำเนินการ</option>
+                                <option value="กำลังแก้ไข">กำลังแก้ไข</option>
+                                <option value="เสร็จสิ้น">ปกติ</option>
+                              </select>
+                              <input type="text" id="searchMachine" placeholder="ค้นหา..."
+                                class="px-2 py-1.5 border rounded text-sm flex-1 min-w-[120px] max-w-[150px]">
+                              </div>
+                            </div>
+                            <div class="bg-white rounded-xl shadow-sm p-4">
+                              <h3 class="text-base font-medium mb-3">🔧 สถานะเครื่องจักร (คลิกดูรายละเอียด)</h3>
+                              <div id="machineGrid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-9 gap-2">
+                                <div class="col-span-full text-center py-6 text-gray-400 text-sm">กำลังโหลด...</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div id="tab-form" class="tab-content hidden">
+                            <div class="bg-white rounded-xl shadow-sm p-5">
+                              <h2 class="text-lg font-bold mb-4">📝 แจ้งปัญหาเครื่องจักร</h2>
+                              <form id="reportForm" class="space-y-4" onsubmit="return false;">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">👤 ผู้แจ้ง</label>
+                                    <input type="text" id="reporter" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ชื่อ">
+                                    </div>
+                                    <div>
+                                      <label class="block text-sm font-medium text-gray-700 mb-1">🔧 เครื่องจักร</label>
+                                      <select id="machineId" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                                        <option value="">-- เลือกเครื่อง --</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">⚠️ ประเภทปัญหา</label>
+                                    <select id="problemType" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                                      <option value="">-- เลือก --</option>
+                                      <option value="เครื่องไม่ทำงาน">🔴 เครื่องไม่ทำงาน</option>
+                                      <option value="เสียงผิดปกติ">🔊 เสียงผิดปกติ</option>
+                                      <option value="ความผิดพลาดของชิ้นงาน">📐 ความผิดพลาดของชิ้นงาน</option>
+                                      <option value="ระบบไฟฟ้า">⚡ ระบบไฟฟ้า</option>
+                                      <option value="ระบบไฮดรอลิก">💧 ระบบไฮดรอลิก/ลม</option>
+                                      <option value="Spindel Overload">⚠️ Spindel Overload</option>
+                                      <option value="Spindel หัวไหล">🔧 Spindel หัวไหล</option>
+                                      <option value="Sensor NG">📡 Sensor NG</option>
+                                      <option value="อะไหล่ชำรุด">🔩 อะไหล่ชำรุด</option>
+                                      <option value="การตั้งค่าเครื่อง">⚙️ การตั้งค่า</option>
+                                      <option value="อื่นๆ">📝 อื่นๆ</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">📝 รายละเอียด</label>
+                                    <textarea id="problemDetail" rows="3" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="อาการ/สาเหตุ...">
+                                    </textarea>
+                                  </div>
+                                  <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">📸 รูปภาพประกอบ (ไม่เกิน 5MB)</label>
+                                    <input type="file" id="problemImage" accept="image/*" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                      <div id="previewArea" class="preview-area">
+                                        <img id="previewImg" class="preview-img" src="" alt="ตัวอย่างรูป" onclick="openModal(this.src)">
+                                          <button type="button" id="removeImage" class="ml-2 text-red-500 text-sm">
+                                            <i class="fa fa-times">
+                                            </i> ลบรูป
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                          <label class="block text-sm font-medium text-gray-700 mb-1">🔧 ผู้รับผิดชอบ</label>
+                                          <input type="text" id="technician" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ชื่อช่าง (ถ้ามี)">
+                                          </div>
+                                          <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">📌 สถานะ</label>
+                                            <select id="status" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                              <option value="รอดำเนินการ">⏳ รอดำเนินการ</option>
+                                              <option value="กำลังแก้ไข">🔧 กำลังแก้ไข</option>
+                                              <option value="เสร็จสิ้น">✅ เสร็จสิ้น</option>
+                                            </select>
+                                          </div>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+                                          <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">🕒 เวลาเริ่มหยุดเครื่อง</label>
+                                            <input type="datetime-local" id="downtimeStart" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                              <p class="text-xs text-gray-500 mt-1">เว้นว่างเพื่อใช้เวลาบันทึกรายงาน</p>
+                                            </div>
+                                            <div>
+                                              <label class="block text-sm font-medium text-gray-700 mb-1">🟢 เวลาสิ้นสุด / กลับมาใช้งาน</label>
+                                              <input type="datetime-local" id="downtimeEnd" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                                <p class="text-xs text-gray-500 mt-1">เว้นว่างหากยังหยุดอยู่</p>
+                                              </div>
+                                              <div id="downtimePreview" class="md:col-span-2 text-sm text-blue-800">ระยะเวลาหยุด: —</div>
+                                            </div>
+                                            <button type="button" id="submitBtn" onclick="submitReport()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
+                                              <i class="fa fa-save mr-1">
+                                              </i> บันทึกข้อมูล
+                                            </button>
+                                          </form>
+                                        </div>
+                                      </div>
+                                      <div id="tab-list" class="tab-content hidden">
+                                        <div class="bg-white rounded-xl shadow-sm p-3 mb-3">
+                                          <div class="flex flex-wrap gap-2 items-center justify-between">
+                                            <h2 class="text-lg font-bold">📋 ประวัติรายงาน</h2>
+                                            <div class="flex flex-wrap gap-2">
+                                              <input type="date" id="filterDate" class="px-2 py-1.5 border rounded text-sm">
+                                                <select id="filterMachine" class="px-2 py-1.5 border rounded text-sm">
+                                                  <option value="">-- ทุกเครื่อง --</option>
+                                                </select>
+                                                <select id="filterStatus" class="px-2 py-1.5 border rounded text-sm">
+                                                  <option value="">-- ทุกสถานะ --</option>
+                                                  <option value="รอดำเนินการ">รอดำเนินการ</option>
+                                                  <option value="กำลังแก้ไข">กำลังแก้ไข</option>
+                                                  <option value="เสร็จสิ้น">เสร็จสิ้น</option>
+                                                </select>
+                                                <button id="btnExport" class="px-3 py-1.5 bg-green-600 text-white rounded text-sm">
+                                                  <i class="fa fa-download">
+                                                  </i> CSV
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                                            <div class="overflow-x-auto">
+                                              <table class="w-full text-xs">
+                                                <thead class="bg-gray-50 text-gray-600">
+                                                  <tr>
+                                                    <th class="px-2 py-2 text-left">วันที่</th>
+                                                    <th class="px-2 py-2 text-left">เครื่อง</th>
+                                                    <th class="px-2 py-2 text-left">ปัญหา</th>
+                                                    <th class="px-2 py-2 text-center">รูป</th>
+                                                    <th class="px-2 py-2 text-left">สถานะ</th>
+                                                    <th class="px-2 py-2 text-center">จัดการ</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody id="reportList">
+                                                  <tr>
+                                                    <td colspan="6" class="px-4 py-6 text-center text-gray-400">กำลังโหลด...</td>
+                                                  </tr>
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div id="tab-charts" class="tab-content hidden">
+                                          <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
+                                            <h2 class="text-lg font-bold mb-3">📈 กราฟสรุป</h2>
+                                            <div class="flex flex-wrap gap-3 mb-4">
+                                              <select id="chartMonth" class="px-3 py-2 border rounded text-sm">
+                                                <option value="">-- ทุกเดือน --</option>
+                                              </select>
+                                              <select id="chartMachine" class="px-3 py-2 border rounded text-sm">
+                                                <option value="">-- ทุกเครื่อง --</option>
+                                              </select>
+                                              <button id="btnRefreshChart" class="px-3 py-2 bg-blue-600 text-white rounded text-sm">
+                                                <i class="fa fa-sync">
+                                                </i> อัปเดต
+                                              </button>
+                                            </div>
+                                          </div>
+                                          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                            <div class="bg-white rounded-xl shadow-sm p-4 min-w-0">
+                                              <h3 class="text-sm font-semibold text-gray-800 mb-2">📊 สรุปประเภทปัญหา</h3>
+                                              <p class="text-sm text-gray-600 mb-3">จำนวนครั้งที่พบปัญหาแยกตามประเภท • ตัวเลขด้านขวาคือจำนวนครั้ง</p>
+                                              <div id="problemChartScroll" class="problem-chart-scroll rounded-lg border border-gray-200" aria-label="กราฟแท่งจำนวนครั้งแยกตามประเภทปัญหา">
+                                                <div id="problemTypeBars" class="space-y-4">
+                                                  <p class="text-sm text-gray-500">กำลังโหลดข้อมูล...</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div class="bg-white rounded-xl shadow-sm p-4">
+                                              <h3 class="text-sm font-medium mb-2">📊 สถานะการดำเนินงาน</h3>
+                                              <canvas id="chartByStatus" height="200">
+                                              </canvas>
+                                            </div>
+                                            <div class="bg-white rounded-xl shadow-sm p-4 lg:col-span-2">
+                                              <h3 class="text-sm font-medium mb-2">🔧 จำนวนปัญหาแต่ละเครื่อง (Top 10)</h3>
+                                              <canvas id="chartByMachine" height="220">
+                                              </canvas>
+                                            </div>
+                                            <div class="bg-white rounded-xl shadow-sm p-4 lg:col-span-2">
+                                              <h3 class="text-sm font-medium mb-2">⏱️ เวลาหยุดสะสมรายเครื่อง (Top 10 ชั่วโมง)</h3>
+                                              <p class="text-xs text-gray-500 mb-2">รายงานที่ยังไม่สิ้นสุดจะนับถึงเวลาปัจจุบัน</p>
+                                              <canvas id="chartDowntime" height="240">
+                                              </canvas>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div id="toast" class="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm transition-all duration-300 transform translate-y-full opacity-0 z-50">
+                                      </div>
+                                      <script>
 let reports = [];
 let listener = null;
 let chartType, chartStatus, chartMachine, chartDowntime;
@@ -373,8 +385,18 @@ for (let i = 1; i <= 54; i++) {
 }
 
 const PROBLEM_TYPES = [
-    'เครื่องไม่ทำงาน','เสียงผิดปกติ','ความผิดพลาดของชิ้นงาน',
-    'ระบบไฟฟ้า','ระบบไฮดรอลิก','อะไหล่ชำรุด','การตั้งค่าเครื่อง','อื่นๆ'
+    'เครื่องไม่ทำงาน',
+    'เสียงผิดปกติ',
+    'ความผิดพลาดของชิ้นงาน',
+    'ระบบไฟฟ้า',
+    'ระบบไฮดรอลิก',
+    'ระบบไฮดรอลิก/ลม',
+    'Spindel Overload',
+    'Spindel หัวไหล',
+    'Sensor NG',
+    'อะไหล่ชำรุด',
+    'การตั้งค่าเครื่อง',
+    'อื่นๆ'
 ];
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -831,9 +853,7 @@ function exportCSV() {
 
 function initCharts() {
     const opts = { responsive: true, maintainAspectRatio: false, animation: { duration: 300 } };
-    chartType = new Chart(document.getElementById('chartByType').getContext('2d'), {
-        type:'bar', options: {...opts, plugins:{legend:{display:false}}}, data:{labels:[],datasets:[]}
-    });
+    // ประเภทปัญหาใช้กราฟแท่ง HTML เพื่อให้ชื่อยาวอ่านได้เต็มบนมือถือ
     chartStatus = new Chart(document.getElementById('chartByStatus').getContext('2d'), {
         type:'doughnut', options: opts, data:{labels:[],datasets:[]}
     });
@@ -851,15 +871,30 @@ function updateAllCharts() {
     if (monthSel) filtered = filtered.filter(r => r.date.slice(0,7) === monthSel);
     if (machSel) filtered = filtered.filter(r => r.machineId === machSel);
 
+    // กราฟแท่งแนวนอนแสดงครบทุกประเภท รวมถึงประเภทที่มีจำนวน 0 และประเภทเก่าที่พบในรายงาน
     const typeCount = {};
-    PROBLEM_TYPES.forEach(t => typeCount[t] = 0);
-    filtered.forEach(r => typeCount[r.problemType]++);
-    chartType.data.labels = Object.keys(typeCount);
-    chartType.data.datasets = [{
-        data:Object.values(typeCount),
-        backgroundColor:'#3b82f6'
-    }];
-    chartType.update('none');
+    PROBLEM_TYPES.forEach(t => { typeCount[t] = 0; });
+    filtered.forEach(r => {
+        const type = String(r.problemType || 'ไม่ระบุประเภทปัญหา').trim() || 'ไม่ระบุประเภทปัญหา';
+        if (!Object.prototype.hasOwnProperty.call(typeCount, type)) typeCount[type] = 0;
+        typeCount[type]++;
+    });
+    const typeLabels = Object.keys(typeCount);
+    const maxTypeCount = Math.max(1, ...Object.values(typeCount));
+    const bars = document.getElementById('problemTypeBars');
+    bars.innerHTML = typeLabels.map(type => {
+        const count = typeCount[type];
+        const width = count > 0 ? Math.max(2, count / maxTypeCount * 100) : 0;
+        return `<div class="border-b border-gray-100 pb-3 last:border-b-0">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <span class="flex-1 min-w-0 whitespace-normal break-words text-base leading-6 font-medium text-gray-800">${dashboardEscape(type)}</span>
+            <span class="shrink-0 rounded-md bg-blue-50 px-3 py-1 text-base font-bold text-blue-800">${count} ครั้ง</span>
+          </div>
+          <div class="w-full h-4 rounded bg-gray-100 overflow-hidden" role="img" aria-label="${dashboardEscape(type)} ${count} ครั้ง">
+            <div class="h-full rounded bg-blue-500" style="width:${width}%"></div>
+          </div>
+        </div>`;
+    }).join('');
 
     const statCount = {'รอดำเนินการ':0, 'กำลังแก้ไข':0, 'เสร็จสิ้น':0};
     filtered.forEach(r => statCount[r.status]++);
@@ -891,5 +926,5 @@ function showToast(msg) {
     setTimeout(() => t.classList.add('translate-y-full','opacity-0'), 2500);
 }
 </script>
-  </body>
-</html>
+                                    </body>
+                                  </html>
