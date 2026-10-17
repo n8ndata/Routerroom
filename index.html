@@ -24,6 +24,38 @@
         .machine-warning { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
         .machine-danger { background-color: #fee2e2; border-left: 4px solid #ef4444; }
         canvas { max-height: 280px; }
+        .history-table-scroll { max-height: 68vh; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .history-table-scroll table { min-width: 720px; }
+        #reportList td { vertical-align: top; line-height: 1.55; }
+        .report-detail-cell { white-space: normal; overflow-wrap: anywhere; min-width: 180px; }
+        .report-detail-panel { width: min(100%, 760px); max-height: 52vh; margin: 0 auto; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; box-sizing: border-box; }
+        .report-detail-panel img { height: auto; max-width: 100%; object-fit: contain; }
+        .report-detail-value { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+        .report-detail-field { min-width: 0; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; overflow-wrap: anywhere; word-break: break-word; }
+        .report-detail-field .field-label { display:block; color:#6b7280; font-size:12px; font-weight:600; margin-bottom:4px; }
+        .report-detail-field .field-value { display:block; color:#111827; font-size:15px; line-height:1.65; white-space:pre-wrap; }
+        .history-table-scroll { -webkit-overflow-scrolling: touch; }
+        .action-icon-btn { display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; font-size:17px; cursor:pointer; }
+        .action-icon-btn:active { background:#f3f4f6; transform:scale(.97); }
+        .action-icon-btn:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+        .report-detail-panel { overscroll-behavior: contain; }
+        .report-detail-close { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:34px; height:34px; border:1px solid #d1d5db; border-radius:9px; color:#374151; background:#fff; cursor:pointer; }
+        .report-detail-close:hover { background:#f3f4f6; }
+        .report-detail-panel .report-detail-field { padding:7px 9px; }
+        .report-detail-panel .field-value { font-size:14px; }
+        .report-detail-panel .report-long-text { max-height:120px; overflow:auto; -webkit-overflow-scrolling:touch; }
+        @media (min-width: 641px) { .report-detail-panel { max-height: 48vh; } }
+        @media (max-width: 640px) { .report-detail-panel { width:100%; max-height:52vh; padding:10px; } }
+        @media (max-width: 640px) {
+          .history-table-scroll { max-height: 52vh; }
+          .history-table-scroll table { min-width: 680px; }
+          .report-detail-panel { max-height: 70vh; padding: 12px; font-size: 15px; }
+          .report-detail-panel .grid { grid-template-columns: minmax(0, 1fr); }
+          .report-detail-panel h3 { font-size:17px; line-height:1.5; }
+          .report-detail-field .field-value { font-size:15px; }
+          #tab-list input, #tab-list select, #tab-list button { min-height: 44px; }
+          #tab-list .flex-wrap { gap:8px; }
+        }
         /* กราฟแท่งประเภทปัญหา: เลื่อนภายในกรอบ และไม่จำกัดความสูง canvas */
         .problem-chart-scroll { max-height: 460px; overflow-y: auto; overflow-x: hidden; padding: 8px; overscroll-behavior: contain; }
         .preview-img { max-height: 80px; border-radius: 6px; cursor: pointer; transition: transform 0.2s; }
@@ -291,8 +323,9 @@ const db = firebase.database();
                                             </div>
                                           </div>
                                           <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                                            <div class="overflow-x-auto">
-                                              <table class="w-full text-xs">
+                                            <p class="px-3 py-2 text-sm leading-6 text-gray-600">กด “ดูรายละเอียด” เพื่อดูข้อมูลการบันทึกทั้งหมด รวมถึงรายละเอียดปัญหา ผลการแก้ไข เวลาเครื่องหยุด และรูปภาพ หากข้อมูลยาวให้เลื่อนภายในกรอบได้ บนมือถือสามารถเลื่อนตารางซ้าย–ขวาได้</p>
+                                            <div class="history-table-scroll overflow-x-auto">
+                                              <table class="w-full text-sm">
                                                 <thead class="bg-gray-50 text-gray-600">
                                                   <tr>
                                                     <th class="px-2 py-2 text-left">วันที่</th>
@@ -333,9 +366,7 @@ const db = firebase.database();
                                               <h3 class="text-sm font-semibold text-gray-800 mb-2">📊 สรุปประเภทปัญหา</h3>
                                               <p class="text-sm text-gray-600 mb-3">จำนวนครั้งที่พบปัญหาแยกตามประเภท • ตัวเลขด้านขวาคือจำนวนครั้ง</p>
                                               <div id="problemChartScroll" class="problem-chart-scroll rounded-lg border border-gray-200" aria-label="กราฟแท่งจำนวนครั้งแยกตามประเภทปัญหา">
-                                                <div id="problemTypeBars" class="space-y-4">
-                                                  <p class="text-sm text-gray-500">กำลังโหลดข้อมูล...</p>
-                                                </div>
+                                                <div id="problemTypeBars" class="space-y-4"><p class="text-sm text-gray-500">กำลังโหลดข้อมูล...</p></div>
                                               </div>
                                             </div>
                                             <div class="bg-white rounded-xl shadow-sm p-4">
@@ -809,35 +840,77 @@ function renderList() {
     let html = '';
     for (const r of filtered) {
         const cls = r.status==='รอดำเนินการ'?'status-wait':r.status==='กำลังแก้ไข'?'status-fixing':'status-done';
+        const safeId = dashboardEscape(r.id || '');
+        const imageHtml = r.imageData
+            ? `<img src="${r.imageData}" class="report-thumbnail mx-auto" onclick="openModal(this.src)" alt="รูปประกอบรายงาน" style="max-width:72px;max-height:72px;object-fit:contain">`
+            : '<span class="text-gray-400">ไม่มีรูป</span>';
         html += `
-        <tr class="border-t border-gray-50 hover:bg-gray-50">
-            <td class="px-2 py-2 text-xs">${r.date}<br>${r.time}</td>
-            <td class="px-2 py-2 font-medium text-xs">${r.machineId}</td>
-            <td class="px-2 py-2 text-xs">
-                <div class="font-medium">${r.problemType}</div>
-                <div class="text-gray-400">${r.reporter}</div>
+        <tr class="border-t border-gray-200 hover:bg-gray-50">
+            <td class="px-3 py-3 text-sm whitespace-nowrap">${dashboardEscape(r.date || '-')}<br>${dashboardEscape(r.time || '-')}</td>
+            <td class="px-3 py-3 font-medium text-sm whitespace-nowrap">${dashboardEscape(r.machineId || '-')}</td>
+            <td class="px-3 py-3 text-sm report-detail-cell"><div class="font-semibold">${dashboardEscape(r.problemType || 'ไม่ระบุประเภท')}</div><div class="text-gray-600 mt-1">${dashboardEscape(r.reporter || 'ไม่ระบุผู้แจ้ง')}</div><div class="text-gray-500 mt-1">${dashboardEscape(r.problemDetail || 'ไม่มีรายละเอียด')}</div></td>
+            <td class="px-3 py-3 text-center">${imageHtml}</td>
+            <td class="px-3 py-3 whitespace-nowrap"><span class="px-2 py-1 rounded text-xs font-medium ${cls}">${dashboardEscape(r.status || 'ไม่ระบุสถานะ')}</span></td>
+            <td class="px-3 py-3 text-center whitespace-nowrap">
+                <div class="flex items-center justify-center gap-2">
+                  <button type="button" data-detail-id="${safeId}" class="action-icon-btn text-blue-700" title="ดูรายละเอียด" aria-label="ดูรายละเอียด"><i class="fa fa-eye" aria-hidden="true"></i></button>
+                  <button type="button" data-edit-id="${safeId}" class="action-icon-btn text-indigo-600" title="แก้ไขสถานะ" aria-label="แก้ไขสถานะ"><i class="fa fa-edit" aria-hidden="true"></i></button>
+                  <button type="button" data-delete-id="${safeId}" class="action-icon-btn text-red-600" title="ลบรายงาน" aria-label="ลบรายงาน"><i class="fa fa-trash" aria-hidden="true"></i></button>
+                </div>
             </td>
-            <td class="px-2 py-2 text-center">
-                ${r.imageData 
-                    ? `<img src="${r.imageData}" class="report-thumbnail" onclick="openModal('${r.imageData}')" alt="รูปประกอบ">` 
-                    : '<span class="text-gray-300 text-lg">—</span>'}
-            </td>
-            <td class="px-2 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${r.status}</span></td>
-            <td class="px-2 py-2 text-center">
-                <button type="button" onclick="openStatusEditor('${r.id}')" class="mr-2 text-blue-600 hover:text-blue-800 text-xs" title="แก้ไขสถานะ"><i class="fa fa-pen-to-square"></i> แก้ไข</button>
-                <button data-id="${r.id}" class="text-red-400 hover:text-red-600 text-xs">
-                    <i class="fa fa-trash"></i>
-                </button>
-            </td>
+        </tr>
+        <tr id="report-detail-${safeId}" class="hidden bg-blue-50 border-t border-blue-100">
+          <td colspan="6" class="px-3 py-3">
+            <div class="report-detail-panel rounded-lg border border-blue-100 bg-white p-3 text-sm space-y-2">
+              <div class="flex items-start justify-between gap-2 sticky top-0 bg-white/95 py-1 z-10">
+                <h3 class="font-bold text-base text-gray-900">รายละเอียดรายงาน: ${dashboardEscape(r.machineId || '-')} • ${dashboardEscape(r.date || '-')} ${dashboardEscape(r.time || '')}</h3>
+                <button type="button" class="report-detail-close" data-close-detail="${safeId}" title="ปิดรายละเอียด" aria-label="ปิดรายละเอียด"><i class="fa fa-times" aria-hidden="true"></i></button>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                ${[['เลขที่รายงาน',safeId || r.id || '-'],['เครื่องจักร',r.machineId],['วันที่บันทึก',r.date],['เวลาบันทึก',r.time],['ประเภทปัญหา',r.problemType],['ผู้แจ้งรายงาน',r.reporter],['ผู้รับผิดชอบ/ช่าง',r.technician],['สถานะปัจจุบัน',r.status],['เวลาเริ่มหยุดเครื่อง',r.downtimeStart],['เวลาสิ้นสุดหยุดเครื่อง',r.downtimeEnd || 'ยังไม่ระบุ'],['ระยะเวลาหยุดเครื่อง',formatDuration(getDowntimeMs(r))],['อัปเดตสถานะล่าสุด',r.statusUpdatedAt],['เวลาที่สร้างรายการ',r.createdAt || r.timestamp],['รหัสเครื่องจักร',r.machineId],['พิกัด/รหัสอ้างอิง',r.referenceNo || r.ticketNo || r.workOrder || '-']].map(([label,value]) => `<div class="report-detail-field"><span class="field-label">${dashboardEscape(label)}</span><span class="field-value">${dashboardEscape(value || '-')}</span></div>`).join('')}
+              </div>
+              <div><div class="font-semibold mb-1">รายละเอียดปัญหา</div><div class="report-long-text whitespace-pre-wrap break-words rounded bg-gray-50 p-2">${dashboardEscape(r.problemDetail || 'ไม่มีรายละเอียด')}</div></div>
+              <div><div class="font-semibold mb-1">ผลการแก้ไข / หมายเหตุ</div><div class="report-long-text whitespace-pre-wrap break-words rounded bg-gray-50 p-2">${dashboardEscape(r.repairNote || 'ยังไม่มีบันทึกผลการแก้ไข')}</div></div>
+              <div><div class="font-semibold mb-2">รูปภาพประกอบรายงาน</div>${r.imageData ? `<img src="${r.imageData}" alt="รูปประกอบรายงาน" class="max-w-full max-h-64 rounded border cursor-pointer object-contain" onclick="openModal(this.src)">` : '<p class="text-gray-500">ไม่มีรูปภาพแนบในรายงานนี้</p>'}</div>
+            </div>
+          </td>
         </tr>`;
     }
     tbody.innerHTML = html;
 
-    tbody.querySelectorAll('button[data-id]').forEach(btn => {
+    tbody.querySelectorAll('button[data-detail-id]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const row = document.getElementById('report-detail-' + this.dataset.detailId);
+            if (!row) return;
+            const willShow = row.classList.contains('hidden');
+            row.classList.toggle('hidden', !willShow);
+            this.innerHTML = willShow ? '<i class="fa fa-times" aria-hidden="true"></i>' : '<i class="fa fa-eye" aria-hidden="true"></i>';
+            this.title = willShow ? 'ปิดรายละเอียด' : 'ดูรายละเอียด';
+            this.setAttribute('aria-label', this.title);
+            this.classList.toggle('text-red-600', willShow);
+            this.classList.toggle('text-blue-700', !willShow);
+            if (willShow) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    });
+    tbody.querySelectorAll('button[data-close-detail]').forEach(btn => btn.addEventListener('click', function() {
+        const row = document.getElementById('report-detail-' + this.dataset.closeDetail);
+        if (!row) return;
+        row.classList.add('hidden');
+        const toggle = tbody.querySelector(`button[data-detail-id="${CSS.escape(this.dataset.closeDetail)}"]`);
+        if (toggle) {
+            toggle.innerHTML = '<i class="fa fa-eye" aria-hidden="true"></i>';
+            toggle.title = 'ดูรายละเอียด';
+            toggle.setAttribute('aria-label', 'ดูรายละเอียด');
+            toggle.classList.remove('text-red-600');
+            toggle.classList.add('text-blue-700');
+        }
+    }));
+    tbody.querySelectorAll('button[data-edit-id]').forEach(btn => btn.addEventListener('click', () => openStatusEditor(btn.dataset.editId)));
+    tbody.querySelectorAll('button[data-delete-id]').forEach(btn => {
         btn.addEventListener('click', async function() {
-            if (confirm('ลบรายการนี้?')) {
-                await db.ref('machineReports/'+this.dataset.id).remove();
-                showToast('🗑️ ลบแล้ว');
+            if (confirm('ยืนยันลบรายงานนี้?')) {
+                await db.ref('machineReports/' + this.dataset.deleteId).remove();
+                showToast('🗑️ ลบรายงานแล้ว');
             }
         });
     });
@@ -845,9 +918,9 @@ function renderList() {
 
 function exportCSV() {
     if (!reports.length) return showToast('⚠️ ไม่มีข้อมูล');
-    const headers=['วันที่','เวลา','เครื่อง','ประเภทปัญหา','รายละเอียด','ผู้แจ้ง','ผู้รับผิดชอบ','สถานะ','ผลการแก้ไข','เวลาเริ่มหยุด','เวลาสิ้นสุด','เวลาหยุด(ชั่วโมง)','มีรูปภาพ'];
+    const headers=['เลขที่รายงาน','วันที่','เวลา','เครื่องจักร','ประเภทปัญหา','รายละเอียดปัญหา','ผู้แจ้ง','ผู้รับผิดชอบ/ช่าง','สถานะ','ผลการแก้ไข/หมายเหตุ','เวลาเริ่มหยุดเครื่อง','เวลาสิ้นสุดหยุดเครื่อง','เวลาหยุด(ชั่วโมง)','อัปเดตสถานะล่าสุด','เวลาสร้างรายการ','มีรูปภาพ'];
     const cell=v=>{let t=String(v??'');if(/^\s*[=+\-@]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"';};
-    const rows=reports.map(r=>[r.date,r.time,r.machineId,r.problemType,r.problemDetail,r.reporter,r.technician||'-',r.status,r.repairNote||'',r.downtimeStart||'',r.downtimeEnd||'',(getDowntimeMs(r)/3600000).toFixed(2),r.imageData?'มี':'ไม่มี'].map(cell).join(','));
+    const rows=reports.map(r=>[r.id,r.date,r.time,r.machineId,r.problemType,r.problemDetail,r.reporter,r.technician||'-',r.status,r.repairNote||'',r.downtimeStart||'',r.downtimeEnd||'',(getDowntimeMs(r)/3600000).toFixed(2),r.statusUpdatedAt||'',r.createdAt||r.timestamp||'',r.imageData?'มี':'ไม่มี'].map(cell).join(','));
     const blob=new Blob(['\uFEFF'+[headers.map(cell).join(','),...rows].join('\r\n')],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`รายงานปัญหา_${localDateTimeValue().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);showToast('✅ ดาวน์โหลดสำเร็จ');
 }
 
