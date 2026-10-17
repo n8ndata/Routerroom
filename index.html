@@ -177,6 +177,9 @@ const db = firebase.database();
                             <option value="ความผิดพลาดของชิ้นงาน">📐 ความผิดพลาดของชิ้นงาน</option>
                             <option value="ระบบไฟฟ้า">⚡ ระบบไฟฟ้า</option>
                             <option value="ระบบไฮดรอลิก">💧 ระบบไฮดรอลิก/ลม</option>
+                            <option value="Spindel Overload">⚠️ Spindel Overload</option>
+                            <option value="Spindel หัวไหล">🔧 Spindel หัวไหล</option>
+                            <option value="Sensor NG">📡 Sensor NG</option>
                             <option value="อะไหล่ชำรุด">🔩 อะไหล่ชำรุด</option>
                             <option value="การตั้งค่าเครื่อง">⚙️ การตั้งค่า</option>
                             <option value="อื่นๆ">📝 อื่นๆ</option>
@@ -315,10 +318,20 @@ let machineStatus = {};
 let lastUpdateTime = 0;
 const DEBOUNCE_DELAY = 150;
 
+// กำหนดชื่อเครื่องตามกลุ่ม โดยคงหมายเลขเครื่องเดิม
+function machineNameForNumber(n) {
+    if ((n >= 10 && n <= 27) || (n >= 43 && n <= 54)) return `TONGTAI M/C ${n}`;
+    if (n >= 33 && n <= 42) return `ROUTER_VIA M/C ${n}`;
+    return `Router-${String(n).padStart(2, '0')}`;
+}
+function normalizeMachineName(value) {
+    const match = String(value || '').match(/(\d+)\s*$/);
+    return match ? machineNameForNumber(Number(match[1])) : value;
+}
 const MACHINES = [];
 for (let i = 1; i <= 54; i++) {
     if ((i >= 1 && i <= 9) || (i >= 28 && i <= 32)) continue;
-    MACHINES.push(`Router-${String(i).padStart(2, '0')}`);
+    MACHINES.push(machineNameForNumber(i));
 }
 
 const PROBLEM_TYPES = [
@@ -565,8 +578,8 @@ function subscribeData() {
     db.ref('.info/connected').on('value', snap => { const el=document.getElementById('connectionStatus'); const ok=snap.val()===true; el.textContent=ok?'● เชื่อมต่อฐานข้อมูลแล้ว':'● ขาดการเชื่อมต่อฐานข้อมูล'; el.className='text-xs mt-1 '+(ok?'text-green-600':'text-red-600'); });
     listener = db.ref('machineReports').limitToLast(200).on('value', snap => {
         const data = snap.val() || {};
-        reports = Object.entries(data).map(([id, val]) => ({id, ...val}))
-            .sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+        reports = Object.entries(data).map(([id, val]) => ({id, ...val, machineId: normalizeMachineName(val.machineId)}))
+            .sort((a,b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
         
         updateMachineStatus();
         renderList();
@@ -638,11 +651,13 @@ function renderDashboard() {
         const cardClass = isOk ? 'machine-ok' : 
                           status.latestStatus === 'รอดำเนินการ' ? 'machine-warning' : 'machine-danger';
         const icon = isOk ? '✅' : status.latestStatus === 'รอดำเนินการ' ? '⏳' : '🔧';
-        const num = m.split('-')[1];
+        const numMatch = String(m).match(/(\d+)\s*$/);
+        const num = numMatch ? numMatch[1] : '';
+        const shortMachineName = `M/C${num}`;
         
         html += `
-        <div class="machine-card p-2 rounded ${cardClass}" onclick="openMachineModal('${m}')">
-            <div class="text-sm font-bold">${num}</div>
+        <div class="machine-card p-2 rounded ${cardClass}" onclick="openMachineModal('${m}')" title="${m}">
+            <div class="text-sm font-bold">${shortMachineName}</div>
             <div class="text-xs">${icon}</div>
             <div class="text-xs text-gray-400">${status.count}</div>
         </div>
