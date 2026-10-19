@@ -193,6 +193,8 @@ const PENDING_SYNC_KEY = 'router_pending_sync_ids';
 const CATEGORIES = {
   internal: [
     "เครื่องจักรขัดข้อง / Spindle Alarm / แกนติดขัด",
+    "หัวล็อค / Spindle overload",
+    "งาน Router ไม่สมบูรณ์ / Incomplete Slot",
     "ดอกเราเตอร์หักคาชิ้นงาน (Tool Broken)",
     "ดอกเราเตอร์สึกหรอ / หมดอายุ (Tool Wear)",
     "ใส่ดอกเราเตอร์ผิดขนาด / Collet ลื่น",
@@ -756,6 +758,7 @@ async function handleFormSubmit(e) {
   const title = document.getElementById('title').value.trim();
   const lotNo = document.getElementById('lotNo').value.trim();
   const partNo = document.getElementById('partNo').value.trim();
+  const modelSerial = document.getElementById('modelSerial') ? document.getElementById('modelSerial').value.trim() : '';
   const totalQty = parseFloat(document.getElementById('totalQty').value) || 0;
   const defectQty = parseFloat(document.getElementById('defectQty').value) || 0;
   const description = document.getElementById('description').value.trim();
@@ -800,6 +803,7 @@ async function handleFormSubmit(e) {
     title,
     lotNo,
     partNo,
+    modelSerial,
     totalQty,
     defectQty,
     defectRate: totalQty > 0 ? parseFloat(((defectQty / totalQty) * 100).toFixed(2)) : 0,
@@ -987,6 +991,8 @@ function editReport(id) {
   document.getElementById('title').value = report.title || '';
   document.getElementById('lotNo').value = report.lotNo || '';
   document.getElementById('partNo').value = report.partNo || '';
+  const modelSerialInput = document.getElementById('modelSerial');
+  if (modelSerialInput) modelSerialInput.value = report.modelSerial || '';
   document.getElementById('totalQty').value = report.totalQty || '';
   document.getElementById('defectQty').value = report.defectQty || '';
   document.getElementById('description').value = report.description || '';
@@ -1362,9 +1368,10 @@ function filterRecords() {
       const matchTitle = (r.title || '').toLowerCase().includes(query);
       const matchLot = (r.lotNo || '').toLowerCase().includes(query);
       const matchPart = (r.partNo || '').toLowerCase().includes(query);
+      const matchSerial = (r.modelSerial || '').toLowerCase().includes(query);
       const matchReporter = (r.reporterName || '').toLowerCase().includes(query);
       const matchDesc = (r.description || '').toLowerCase().includes(query);
-      if (!matchMachine && !matchTitle && !matchLot && !matchPart && !matchReporter && !matchDesc) {
+      if (!matchMachine && !matchTitle && !matchLot && !matchPart && !matchSerial && !matchReporter && !matchDesc) {
         return false;
       }
     }
@@ -1458,6 +1465,7 @@ function renderRecordsTable(reports) {
       <td class="px-3 py-3 whitespace-nowrap">
         <div class="font-medium text-slate-700">${escapeHtml(r.lotNo || '-')}</div>
         <div class="text-[10px] text-slate-400">${escapeHtml(r.partNo || '-')}</div>
+        ${r.modelSerial ? `<div class="text-[10px] text-slate-400">S/N: ${escapeHtml(r.modelSerial)}</div>` : ''}
       </td>
       <td class="px-3 py-3 text-center whitespace-nowrap">
         <span class="font-bold ${r.defectQty > 0 ? 'text-red-600' : 'text-slate-500'}">${r.defectQty || 0}</span>
@@ -1531,6 +1539,7 @@ function renderRecordsCards(reports) {
           
           <div class="mt-2 flex items-center space-x-3 text-[11px] text-slate-600">
             ${r.lotNo ? `<span>Lot: <strong>${escapeHtml(r.lotNo)}</strong></span>` : ''}
+            ${r.modelSerial ? `<span>S/N: <strong>${escapeHtml(r.modelSerial)}</strong></span>` : ''}
             <span>เสีย: <strong class="text-red-600">${r.defectQty || 0} ชิ้น</strong></span>
           </div>
         </div>
@@ -1781,7 +1790,7 @@ function viewReportDetail(id) {
     </div>
 
     <!-- Production Job Info -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
       <div>
         <span class="text-[10px] text-blue-700 font-semibold block">หมายเลข Lot</span>
         <span class="text-xs font-bold text-slate-800">${escapeHtml(report.lotNo || '-')}</span>
@@ -1789,6 +1798,10 @@ function viewReportDetail(id) {
       <div>
         <span class="text-[10px] text-blue-700 font-semibold block">รหัสชิ้นงาน (P/N)</span>
         <span class="text-xs font-bold text-slate-800">${escapeHtml(report.partNo || '-')}</span>
+      </div>
+      <div>
+        <span class="text-[10px] text-blue-700 font-semibold block">รุ่นซีเรียล (Model Serial)</span>
+        <span class="text-xs font-bold text-slate-800">${escapeHtml(report.modelSerial || '-')}</span>
       </div>
       <div>
         <span class="text-[10px] text-blue-700 font-semibold block">จำนวนงานใน Lot</span>
@@ -1923,6 +1936,10 @@ function printSingleReport(id) {
           <td class="border border-slate-300 p-2 font-semibold">${escapeHtml(report.lotNo || '-')}</td>
           <th class="border border-slate-300 p-2 text-left">รหัสชิ้นงาน (Part No.):</th>
           <td class="border border-slate-300 p-2 font-semibold">${escapeHtml(report.partNo || '-')}</td>
+        </tr>
+        <tr>
+          <th class="border border-slate-300 p-2 text-left">รุ่นซีเรียล (Model Serial):</th>
+          <td class="border border-slate-300 p-2 font-semibold" colspan="3">${escapeHtml(report.modelSerial || '-')}</td>
         </tr>
         <tr>
           <th class="border border-slate-300 p-2 text-left">จำนวนงานทั้งหมด (Lot Qty):</th>
@@ -2100,6 +2117,7 @@ function exportToExcelData(dataList, fileName) {
     "หมวดหมู่ปัญหา": r.problemCategory || '',
     "หมายเลข Lot": r.lotNo || '',
     "รหัสชิ้นงาน (P/N)": r.partNo || '',
+    "รุ่นซีเรียล (Model Serial)": r.modelSerial || '',
     "จำนวนงานทั้งหมด (Pcs)": r.totalQty || 0,
     "จำนวนงานเสีย/หลุด (NG)": r.defectQty || 0,
     "อัตรางานเสีย (%)": r.defectRate || 0,
@@ -2148,7 +2166,7 @@ async function exportReportsZip() {
   const csvRows = reports.map(r => ({
     'Report ID': r.id || '', 'Type': r.reportType || '', 'Date': r.reportDateTime || r.reportDate || '',
     'Machine': r.machineName || '', 'Title': r.title || '', 'Category': r.problemCategory || '',
-    'Lot': r.lotNo || '', 'Part No': r.partNo || '', 'Description': r.description || '',
+    'Lot': r.lotNo || '', 'Part No': r.partNo || '', 'Model Serial': r.modelSerial || '', 'Description': r.description || '',
     'Root Cause': r.rootCause || r.escapedRootCause || '', 'Corrective Action': r.correctiveAction || '',
     'Status': r.status || '', 'Severity': r.severity || '', 'Reporter': r.reporterName || '',
     'Images': (r.images || []).length
@@ -2277,7 +2295,7 @@ function exportSummaryPDF() {
               </td>
               <td class="border border-slate-300 p-1 font-bold">${escapeHtml(r.machineName)}</td>
               <td class="border border-slate-300 p-1 max-w-[150px] truncate">${escapeHtml(r.title)}</td>
-              <td class="border border-slate-300 p-1">${escapeHtml(r.lotNo || '-')}</td>
+              <td class="border border-slate-300 p-1">${escapeHtml(r.lotNo || '-')}${r.modelSerial ? `<div class="text-[9px] text-slate-500">S/N: ${escapeHtml(r.modelSerial)}</div>` : ''}</td>
               <td class="border border-slate-300 p-1 text-center font-bold ${r.defectQty > 0 ? 'text-red-600' : ''}">${r.defectQty || 0}</td>
               <td class="border border-slate-300 p-1 max-w-[180px] truncate text-[9px]">${escapeHtml(r.rootCause || r.correctiveAction || '-')}</td>
               <td class="border border-slate-300 p-1 text-center">${(r.images || []).length > 0 ? `<img src="${r.images[0].dataUrl}" class="w-6 h-6 object-cover mx-auto rounded border">` : '-'}</td>

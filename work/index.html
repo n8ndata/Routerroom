@@ -68,7 +68,7 @@
         <div>
           <div class="flex items-center space-x-2">
             <h1 class="text-lg sm:text-xl font-bold tracking-tight">ระบบบันทึกปัญหาแผนก ROUTER</h1>
-            <span class="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 px-2.5 py-0.5 rounded-full font-bold inline-block">v3.4 ปรับปรุงระบบ</span>
+            <span class="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 px-2.5 py-0.5 rounded-full font-bold inline-block">v3.5 ปรับปรุงระบบ</span>
           </div>
           <p class="text-xs text-blue-200/90">ติดตามปัญหาภายใน & รับรายงานงานหลุด (Escaped Defect)</p>
         </div>
@@ -561,7 +561,7 @@
               <i class="fa-solid fa-barcode text-blue-600"></i>
               <span>ข้อมูลการผลิตและชิ้นงาน (Lot / Part Info)</span>
             </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <div>
                 <label for="lotNo" class="block text-xs text-slate-600 mb-1">หมายเลข Lot (Lot No.)</label>
                 <input type="text" id="lotNo" placeholder="เช่น 2410-RT-012" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
@@ -569,6 +569,10 @@
               <div>
                 <label for="partNo" class="block text-xs text-slate-600 mb-1">รหัสชิ้นงาน (Part No. / P/N)</label>
                 <input type="text" id="partNo" placeholder="เช่น PCB-MAIN-V2" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+              <div>
+                <label for="modelSerial" class="block text-xs text-slate-600 mb-1">รุ่นซีเรียล (Modle Serial)</label>
+                <input type="text" id="modelSerial" placeholder="เช่น RTR-SN-2024-0001" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               </div>
               <div>
                 <label for="totalQty" class="block text-xs text-slate-600 mb-1">จำนวนงานทั้งหมด (Total Qty)</label>
@@ -737,7 +741,7 @@
           <!-- Search Input -->
           <div class="relative flex-1">
             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-            <input type="text" id="record-search" oninput="filterRecords()" placeholder="ค้นหา: ชื่อเครื่อง (เช่น TONGTAI 10, ROUTER_VIA 33), Lot No, Part No, หัวข้อปัญหา, ผู้รายงาน..." class="w-full text-sm pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <input type="text" id="record-search" oninput="filterRecords()" placeholder="ค้นหา: ชื่อเครื่อง (เช่น TONGTAI 10, ROUTER_VIA 33), Lot No, Part No, รุ่นซีเรียล, หัวข้อปัญหา, ผู้รายงาน..." class="w-full text-sm pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
           </div>
 
           <!-- Filters -->
