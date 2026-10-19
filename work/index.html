@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบรายงานปัญหาแผนก ROUTER & ติดตามงานหลุด</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- SweetAlert2 for modern alerts -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <!-- Chart.js for interactive analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- SheetJS (xlsx) for Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <!-- html2pdf.js for full PDF export with images -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+  <!-- Firebase Compat Libraries for broad compatibility -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            router: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+              900: '#082f49',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased pb-24 md:pb-10 min-h-screen">
+
+  <!-- เข้าใช้งานได้ทันที ไม่แสดงหน้าล็อกอิน -->
+
+  <!-- ================= TOP HEADER ================= -->
+  <header class="bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-950 text-white shadow-lg sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600/90 flex items-center justify-center text-white font-bold text-xl shadow-md border border-blue-400/30">
+          <i class="fa-solid fa-microchip"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg sm:text-xl font-bold tracking-tight">ระบบบันทึกปัญหาแผนก ROUTER</h1>
+            <span class="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 px-2.5 py-0.5 rounded-full font-bold inline-block">v3.4 ปรับปรุงระบบ</span>
+          </div>
+          <p class="text-xs text-blue-200/90">ติดตามปัญหาภายใน & รับรายงานงานหลุด (Escaped Defect)</p>
+        </div>
+      </div>
+
+      <!-- Sync Status & Quick Actions -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <a href="../index.html" class="home-return-btn inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 hover:bg-white/20 px-3 py-2 text-xs sm:text-sm font-bold text-white shadow-md transition" title="กลับหน้าหลักเลือกโหมด">
+          <i class="fa-solid fa-house-chimney text-amber-300"></i><span class="hidden sm:inline">หน้าหลัก</span>
+        </a>
+        <div id="connection-status" class="flex items-center space-x-1.5 text-xs bg-emerald-950/60 text-emerald-300 border border-emerald-600/40 px-2.5 py-1 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="connection-text" class="hidden sm:inline">Firebase เชื่อมต่อแล้ว</span>
+        </div>
+        
+        <button onclick="switchTab('form')" class="hidden md:flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
+          <i class="fa-solid fa-plus"></i>
+          <span>บันทึกปัญหาใหม่</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Desktop Navigation Tabs -->
+    <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hidden md:flex space-x-1 border-t border-white/10 pt-1 text-sm font-medium">
+      <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active px-4 py-2.5 rounded-t-lg transition flex items-center space-x-2 text-white/90 hover:text-white">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>แดชบอร์ด & สถิติ</span>
+      </button>
+      <button onclick="switchTab('form')" id="nav-form" class="nav-btn px-4 py-2.5 rounded-t-lg transition flex items-center space-x-2 text-white/90 hover:text-white">
+        <i class="fa-solid fa-circle-plus"></i>
+        <span>บันทึกรายงานปัญหา</span>
+      </button>
+      <button onclick="switchTab('records')" id="nav-records" class="nav-btn px-4 py-2.5 rounded-t-lg transition flex items-center space-x-2 text-white/90 hover:text-white">
+        <i class="fa-solid fa-list-check"></i>
+        <span>รายการข้อมูลทั้งหมด</span>
+        <span id="badge-total-count" class="bg-white/20 text-xs px-2 py-0.5 rounded-full ml-1">0</span>
+      </button>
+      <button onclick="switchTab('calendar')" id="nav-calendar" class="nav-btn px-4 py-2.5 rounded-t-lg transition flex items-center space-x-2 text-white/90 hover:text-white">
+        <i class="fa-regular fa-calendar-days"></i>
+        <span>ปฏิทินงาน</span>
+      </button>
+      <button onclick="switchTab('export')" id="nav-export" class="nav-btn px-4 py-2.5 rounded-t-lg transition flex items-center space-x-2 text-white/90 hover:text-white">
+        <i class="fa-solid fa-file-export"></i>
+        <span>ดาวน์โหลด & ส่งออกรายงาน</span>
+      </button>
+    </nav>
+</header>
+
+  <!-- ================= MAIN CONTAINER ================= -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5">
+
+    <!-- ================= VIEW 1: DASHBOARD ================= -->
+    <section id="view-dashboard" class="space-x-0 space-y-6">
+      
+      <!-- Filter Bar for Dashboard -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-filter text-blue-600"></i>
+          <span class="text-sm font-semibold text-slate-700">กรองข้อมูลแดชบอร์ด:</span>
+          <select id="dash-date-filter" onchange="applyDashboardFilter()" class="text-sm bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <option value="all">ข้อมูลทั้งหมด (All Time)</option>
+            <option value="today">วันนี้ (Today)</option>
+            <option value="this_week">สัปดาห์นี้ (This Week)</option>
+            <option value="this_month" selected>เดือนนี้ (This Month)</option>
+            <option value="last_month">เดือนที่แล้ว (Last Month)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center space-x-2 text-xs text-slate-500">
+          <span id="dash-summary-label">กำลังประมวลผลข้อมูลล่าสุด...</span>
+          <button onclick="reloadFromFirebase()" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 transition" title="รีเฟรชข้อมูล">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Metric KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        
+        <!-- Total Reports Card -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">รายงานทั้งหมด</span>
+            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i class="fa-solid fa-clipboard-list"></i>
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpi-total" class="text-2xl sm:text-3xl font-extrabold text-slate-800">0</span>
+            <span class="text-xs text-slate-400">รายการ</span>
+          </div>
+          <div class="mt-2 text-xs text-slate-500 flex items-center">
+            <span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>
+            <span>บันทึกทั้งหมด</span>
+          </div>
+        </div>
+
+        <!-- Internal Issues Card -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-red-100 relative overflow-hidden bg-gradient-to-br from-white to-red-50/30">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-red-600 uppercase tracking-wider">ปัญหาภายในแผนก</span>
+            <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpi-internal" class="text-2xl sm:text-3xl font-extrabold text-red-600">0</span>
+            <span id="kpi-internal-pct" class="text-xs font-semibold text-red-500">0%</span>
+          </div>
+          <div class="mt-2 text-xs text-red-600/80 flex items-center">
+            <span>เครื่องจักร / Tool / ผลิตใน Router</span>
+          </div>
+        </div>
+
+        <!-- Escaped Defect Card -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-amber-100 relative overflow-hidden bg-gradient-to-br from-white to-amber-50/40">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-amber-700 uppercase tracking-wider">งานหลุดออกไป</span>
+            <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+              <i class="fa-solid fa-truck-fast"></i>
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpi-escaped" class="text-2xl sm:text-3xl font-extrabold text-amber-600">0</span>
+            <span id="kpi-escaped-pct" class="text-xs font-semibold text-amber-600">0%</span>
+          </div>
+          <div class="mt-2 text-xs text-amber-700/80 flex items-center">
+            <span>หลุดไป QC / แผนกถัดไป / ลูกค้า</span>
+          </div>
+        </div>
+
+        <!-- Total Scrap/Defect Qty Card -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">ชิ้นงานเสียรวม</span>
+            <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+              <i class="fa-solid fa-cubes-stacked"></i>
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpi-defect-qty" class="text-2xl sm:text-3xl font-extrabold text-purple-700">0</span>
+            <span class="text-xs text-slate-400">ชิ้น / Pnl</span>
+          </div>
+          <div class="mt-2 text-xs text-purple-600/80 flex items-center">
+            <span>ยอดชิ้นงานเสียสะสม</span>
+          </div>
+        </div>
+
+        <!-- Resolution Rate Card -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100 relative overflow-hidden bg-gradient-to-br from-white to-emerald-50/30 col-span-2 lg:col-span-1">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-emerald-700 uppercase tracking-wider">อัตราแก้ไขสำเร็จ</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpi-resolved-pct" class="text-2xl sm:text-3xl font-extrabold text-emerald-600">0%</span>
+            <span id="kpi-pending-count" class="text-xs text-amber-600 font-medium">รอ 0</span>
+          </div>
+          <div class="mt-2 text-xs text-emerald-700/80 flex items-center">
+            <span>สถานะแก้ไขแล้ว / ปิดเคส</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analytics Charts Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Chart 1: Ratio Internal vs Escaped (Doughnut) -->
+        <div class="lg:col-span-4 bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-chart-pie text-blue-600"></i>
+              <span>สัดส่วนประเภทปัญหา</span>
+            </h3>
+            <span class="text-xs text-slate-400">ภายใน vs งานหลุด</span>
+          </div>
+          <div class="relative h-60 flex items-center justify-center">
+            <canvas id="chart-ratio"></canvas>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-center text-xs">
+            <div class="p-2 rounded-lg bg-red-50 text-red-700">
+              <span class="block font-semibold">ภายในแผนก</span>
+              <span id="ratio-internal-text" class="text-base font-bold">0 รายการ</span>
+            </div>
+            <div class="p-2 rounded-lg bg-amber-50 text-amber-800">
+              <span class="block font-semibold">งานหลุดออกไป</span>
+              <span id="ratio-escaped-text" class="text-base font-bold">0 รายการ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart 2: Issues by Machine (Bar Chart) -->
+        <div class="lg:col-span-8 bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-2">
+                <i class="fa-solid fa-server text-indigo-600"></i>
+                <span>สถิติปัญหาแยกตามเครื่องจักร</span>
+              </h3>
+              <p class="text-xs text-slate-400">เปรียบเทียบ TONGTAI (10-27, 43-54) และ ROUTER_VIA (33-42)</p>
+            </div>
+            <div class="flex items-center space-x-2 text-xs">
+              <span class="inline-flex items-center"><span class="w-2.5 h-2.5 bg-blue-600 rounded mr-1"></span> TONGTAI</span>
+              <span class="inline-flex items-center"><span class="w-2.5 h-2.5 bg-purple-600 rounded mr-1"></span> ROUTER_VIA</span>
+            </div>
+          </div>
+          <div class="relative h-64">
+            <canvas id="chart-machine"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 3: Top Defect Categories (Horizontal Bar) -->
+        <div class="lg:col-span-6 bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-list-ol text-rose-600"></i>
+              <span>หมวดหมู่ปัญหาที่พบบ่อยสุด (Top Defect Types)</span>
+            </h3>
+          </div>
+          <div class="relative h-60">
+            <canvas id="chart-category"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 4: Trend Over Time (Line Chart) -->
+        <div class="lg:col-span-6 bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-chart-line text-emerald-600"></i>
+              <span>แนวโน้มการเกิดปัญหาตามวัน (Incident Trend)</span>
+            </h3>
+          </div>
+          <div class="relative h-60">
+            <canvas id="chart-trend"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Machine Status & Recent Alerts -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        
+        <!-- Machine Group Summary -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+          <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
+            <span>สรุปตามกลุ่มเครื่องจักร</span>
+            <i class="fa-solid fa-layer-group text-slate-400"></i>
+          </h3>
+          <div class="space-y-3">
+            <div class="p-3 bg-blue-50/60 rounded-xl border border-blue-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-blue-900 block">TONGTAI 10-27 & 43-54</span>
+                <span class="text-xs text-blue-700">ทั้งหมด 30 เครื่อง</span>
+              </div>
+              <div class="text-right">
+                <span id="group-tongtai-count" class="text-lg font-extrabold text-blue-800">0</span>
+                <span class="text-xs text-slate-500 block">เคส</span>
+              </div>
+            </div>
+
+            <div class="p-3 bg-purple-50/60 rounded-xl border border-purple-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-purple-900 block">ROUTER_VIA 33-42</span>
+                <span class="text-xs text-purple-700">ทั้งหมด 10 เครื่อง</span>
+              </div>
+              <div class="text-right">
+                <span id="group-via-count" class="text-lg font-extrabold text-purple-800">0</span>
+                <span class="text-xs text-slate-500 block">เคส</span>
+              </div>
+            </div>
+
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-slate-800 block">อื่นๆ / งานหลุดไม่ระบุเครื่อง</span>
+                <span class="text-xs text-slate-500">General / Unknown Machine</span>
+              </div>
+              <div class="text-right">
+                <span id="group-other-count" class="text-lg font-extrabold text-slate-700">0</span>
+                <span class="text-xs text-slate-500 block">เคส</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Escaped Defect Alerts -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+              <span>รายงานงานหลุดล่าสุด (Recent Escaped Defect)</span>
+            </h3>
+            <button onclick="filterRecordsByType('escaped')" class="text-xs text-blue-600 hover:underline">ดูทั้งหมด</button>
+          </div>
+          
+          <div id="dashboard-escaped-list" class="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+            <p class="text-xs text-slate-400 text-center py-6">ไม่มีรายงานงานหลุดในช่วงนี้</p>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ================= VIEW 2: REPORT FORM ================= -->
+    <section id="view-form" class="hidden max-w-4xl mx-auto">
+      
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden">
+        
+        <!-- Form Header -->
+        <div class="bg-gradient-to-r from-blue-700 to-indigo-800 px-6 py-4 text-white">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 id="form-mode-title" class="text-lg font-bold">บันทึกรายงานปัญหาแผนก ROUTER</h2>
+              <p class="text-xs text-blue-100">กรอกข้อมูลและแนบรูปภาพเพื่อจัดเก็บลงฐานข้อมูล Firebase</p>
+            </div>
+            <span class="text-xs bg-white/20 px-2.5 py-1 rounded-full font-medium" id="form-ticket-id">New Ticket</span>
+          </div>
+        </div>
+
+        <form id="incident-form" onsubmit="handleFormSubmit(event)" class="p-5 sm:p-7 space-y-6">
+          <input type="hidden" id="edit-doc-id" value="">
+
+          <!-- 1. Report Type Selection (Crucial Requirement) -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              ประเภทของรายงาน <span class="text-red-500">*</span>
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="relative flex items-center p-3 rounded-xl border-2 cursor-pointer transition has-[:checked]:border-red-500 has-[:checked]:bg-red-50/40 border-slate-200 hover:bg-slate-50">
+                <input type="radio" name="reportType" value="internal" checked onchange="toggleReportTypeFields()" class="w-4 h-4 text-red-600 focus:ring-red-500">
+                <div class="ml-3">
+                  <span class="block text-sm font-bold text-red-700 flex items-center">
+                    <i class="fa-solid fa-wrench mr-1.5"></i> ปัญหาภายในแผนก ROUTER
+                  </span>
+                  <span class="block text-xs text-slate-500">เครื่องจักรเสีย, ใบมีดหัก, งานเสียระหว่างผลิต, เซ็ตติ้ง</span>
+                </div>
+              </label>
+
+              <label class="relative flex items-center p-3 rounded-xl border-2 cursor-pointer transition has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50/40 border-slate-200 hover:bg-slate-50">
+                <input type="radio" name="reportType" value="escaped" onchange="toggleReportTypeFields()" class="w-4 h-4 text-amber-600 focus:ring-amber-500">
+                <div class="ml-3">
+                  <span class="block text-sm font-bold text-amber-700 flex items-center">
+                    <i class="fa-solid fa-truck-ramp-box mr-1.5"></i> งานหลุดออกไปจากแผนก (Escaped)
+                  </span>
+                  <span class="block text-xs text-slate-500">หลุดไป FQC, แผนกถัดไป, หรือลูกค้าร้องเรียน</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- 2. Machine Selection (Strict 10-27, 43-54 TONGTAI and 33-42 ROUTER_VIA) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="machineName" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                หมายเลขเครื่องจักร <span class="text-red-500">*</span>
+              </label>
+              <select id="machineName" required onchange="handleMachineChange()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="">-- กรุณาเลือกเครื่องจักร --</option>
+                
+                <!-- TONGTAI 10-27 -->
+                <optgroup label="TONGTAI (หมายเลข 10 - 27)">
+                  <option value="TONGTAI 10">TONGTAI 10</option>
+                  <option value="TONGTAI 11">TONGTAI 11</option>
+                  <option value="TONGTAI 12">TONGTAI 12</option>
+                  <option value="TONGTAI 13">TONGTAI 13</option>
+                  <option value="TONGTAI 14">TONGTAI 14</option>
+                  <option value="TONGTAI 15">TONGTAI 15</option>
+                  <option value="TONGTAI 16">TONGTAI 16</option>
+                  <option value="TONGTAI 17">TONGTAI 17</option>
+                  <option value="TONGTAI 18">TONGTAI 18</option>
+                  <option value="TONGTAI 19">TONGTAI 19</option>
+                  <option value="TONGTAI 20">TONGTAI 20</option>
+                  <option value="TONGTAI 21">TONGTAI 21</option>
+                  <option value="TONGTAI 22">TONGTAI 22</option>
+                  <option value="TONGTAI 23">TONGTAI 23</option>
+                  <option value="TONGTAI 24">TONGTAI 24</option>
+                  <option value="TONGTAI 25">TONGTAI 25</option>
+                  <option value="TONGTAI 26">TONGTAI 26</option>
+                  <option value="TONGTAI 27">TONGTAI 27</option>
+                </optgroup>
+
+                <!-- TONGTAI 43-54 -->
+                <optgroup label="TONGTAI (หมายเลข 43 - 54)">
+                  <option value="TONGTAI 43">TONGTAI 43</option>
+                  <option value="TONGTAI 44">TONGTAI 44</option>
+                  <option value="TONGTAI 45">TONGTAI 45</option>
+                  <option value="TONGTAI 46">TONGTAI 46</option>
+                  <option value="TONGTAI 47">TONGTAI 47</option>
+                  <option value="TONGTAI 48">TONGTAI 48</option>
+                  <option value="TONGTAI 49">TONGTAI 49</option>
+                  <option value="TONGTAI 50">TONGTAI 50</option>
+                  <option value="TONGTAI 51">TONGTAI 51</option>
+                  <option value="TONGTAI 52">TONGTAI 52</option>
+                  <option value="TONGTAI 53">TONGTAI 53</option>
+                  <option value="TONGTAI 54">TONGTAI 54</option>
+                </optgroup>
+
+                <!-- ROUTER_VIA 33-42 -->
+                <optgroup label="ROUTER_VIA (หมายเลข 33 - 42)">
+                  <option value="ROUTER_VIA 33">ROUTER_VIA 33</option>
+                  <option value="ROUTER_VIA 34">ROUTER_VIA 34</option>
+                  <option value="ROUTER_VIA 35">ROUTER_VIA 35</option>
+                  <option value="ROUTER_VIA 36">ROUTER_VIA 36</option>
+                  <option value="ROUTER_VIA 37">ROUTER_VIA 37</option>
+                  <option value="ROUTER_VIA 38">ROUTER_VIA 38</option>
+                  <option value="ROUTER_VIA 39">ROUTER_VIA 39</option>
+                  <option value="ROUTER_VIA 40">ROUTER_VIA 40</option>
+                  <option value="ROUTER_VIA 41">ROUTER_VIA 41</option>
+                  <option value="ROUTER_VIA 42">ROUTER_VIA 42</option>
+                </optgroup>
+
+                <!-- Other / Not Specified -->
+                <optgroup label="ตัวเลือกอื่นๆ">
+                  <option value="ไม่ระบุเครื่อง / งานหลุดยังไม่ทราบเครื่อง">ไม่ระบุเครื่อง / งานหลุดยังไม่ทราบเครื่อง</option>
+                  <option value="OTHER">อื่นๆ (ระบุเอง)</option>
+                </optgroup>
+              </select>
+
+              <!-- Optional Custom Machine Input -->
+              <input type="text" id="customMachineInput" placeholder="กรอกชื่อเครื่องจักรอื่นๆ..." class="hidden mt-2 w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <!-- Date and Time of Incident -->
+            <div>
+              <label for="reportDateTime" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                วันที่และเวลาที่เกิดเหตุ <span class="text-red-500">*</span>
+              </label>
+              <input type="datetime-local" id="reportDateTime" required class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Shift & Reporter Info -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label for="shift" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                กะการทำงาน (Shift) <span class="text-red-500">*</span>
+              </label>
+              <select id="shift" required class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="กะ A (กลางวัน)">กะ A (กลางวัน: 08:00 - 20:00)</option>
+                <option value="กะ B (กลางคืน)">กะ B (กลางคืน: 20:00 - 08:00)</option>
+                <option value="กะปกติ (Normal)">กะปกติ (Normal)</option>
+                <option value="กะ C">กะ C</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="reporterName" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                ผู้รายงาน / ผู้รับเรื่อง <span class="text-red-500">*</span>
+              </label>
+              <input type="text" id="reporterName" required placeholder="ชื่อ-นามสกุล / รหัสพนักงาน" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label for="severity" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                ระดับความรุนแรง <span class="text-red-500">*</span>
+              </label>
+              <select id="severity" required class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="ต่ำ">🟢 ต่ำ (Low - กระทบเล็กน้อย)</option>
+                <option value="ปานกลาง" selected>🟡 ปานกลาง (Medium - ชิ้นงานเสียบางส่วน)</option>
+                <option value="สูง">🟠 สูง (High - งานเสียจำนวนมาก / ต้องกักกัน)</option>
+                <option value="วิกฤต">🔴 วิกฤต (Critical - หยุดเครื่อง / งานหลุดถึงลูกค้า)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Problem Classification & Title -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="problemCategory" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                หมวดหมู่ของปัญหา <span class="text-red-500">*</span>
+              </label>
+              <select id="problemCategory" required class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <!-- Populated dynamically via JS based on Internal vs Escaped -->
+              </select>
+            </div>
+
+            <div>
+              <label for="title" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                หัวข้อปัญหา (Summary Title) <span class="text-red-500">*</span>
+              </label>
+              <input type="text" id="title" required placeholder="เช่น ดอกเราเตอร์หักคาชิ้นงาน, กัดกินขอบเกิน 0.2mm" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Production Job Details (Lot No, Part No, Qty) -->
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+            <h4 class="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+              <i class="fa-solid fa-barcode text-blue-600"></i>
+              <span>ข้อมูลการผลิตและชิ้นงาน (Lot / Part Info)</span>
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label for="lotNo" class="block text-xs text-slate-600 mb-1">หมายเลข Lot (Lot No.)</label>
+                <input type="text" id="lotNo" placeholder="เช่น 2410-RT-012" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+              <div>
+                <label for="partNo" class="block text-xs text-slate-600 mb-1">รหัสชิ้นงาน (Part No. / P/N)</label>
+                <input type="text" id="partNo" placeholder="เช่น PCB-MAIN-V2" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+              <div>
+                <label for="totalQty" class="block text-xs text-slate-600 mb-1">จำนวนงานทั้งหมด (Total Qty)</label>
+                <input type="number" id="totalQty" min="0" oninput="calculateDefectRate()" placeholder="เช่น 500" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+              <div>
+                <label for="defectQty" class="block text-xs text-slate-600 mb-1">จำนวนงานเสีย/หลุด (NG Qty)</label>
+                <div class="flex items-center space-x-2">
+                  <input type="number" id="defectQty" min="0" oninput="calculateDefectRate()" placeholder="เช่น 5" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                  <span id="defect-rate-badge" class="text-xs bg-slate-200 text-slate-700 px-2 py-1.5 rounded-lg whitespace-nowrap font-semibold">0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Escaped Specific Section (Conditional) -->
+          <div id="escaped-section" class="hidden p-4 bg-amber-50/70 border border-amber-200 rounded-xl space-y-3">
+            <h4 class="text-xs font-bold text-amber-900 flex items-center space-x-1.5">
+              <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+              <span>ข้อมูลเฉพาะ: กรณีงานหลุดออกไปจากแผนก (Escaped Defect Tracking)</span>
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="escapedTo" class="block text-xs text-amber-900 font-semibold mb-1">แผนกที่ตรวจพบงานหลุด <span class="text-red-500">*</span></label>
+                <select id="escapedTo" class="w-full text-xs bg-white border border-amber-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                  <option value="FQC (Final Quality Control)">FQC (Final Quality Control / ตรวจสอบขั้นสุดท้าย)</option>
+                  <option value="Surface Finish (ชุบผิว/ENIG/HASL)">Surface Finish (ชุบผิว / ENIG / HASL)</option>
+                  <option value="Solder Mask / Legend">Solder Mask / Legend</option>
+                  <option value="Electrical Testing (ET)">Electrical Testing (ET / ตรวจสอบไฟฟ้า)</option>
+                  <option value="Assembly (ประกอบ/บัดกรี)">Assembly (ประกอบ / บัดกรี)</option>
+                  <option value="Packing / บรรจุภัณฑ์">Packing / แผนกบรรจุภัณฑ์</option>
+                  <option value="Customer Claim (ลูกค้าร้องเรียน)">Customer Claim (ลูกค้าร้องเรียน / RMA)</option>
+                  <option value="อื่นๆ (ระบุในรายละเอียด)">อื่นๆ (ระบุในรายละเอียด)</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="escapedRootCause" class="block text-xs text-amber-900 font-semibold mb-1">ทำไมจึงหลุดการตรวจสอบในแผนก ROUTER?</label>
+                <select id="escapedRootCause" class="w-full text-xs bg-white border border-amber-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                  <option value="หลุดจากการสุ่มตรวจ (Sampling Inspection missed)">หลุดจากการสุ่มตรวจ (Sampling Inspection missed)</option>
+                  <option value="ไม่ได้ตรวจ First Piece ชิ้นแรกอย่างละเอียด">ไม่ได้ตรวจ First Piece ชิ้นแรกอย่างละเอียด</option>
+                  <option value="ชิ้นงานมีฝุ่น/คราบ บดบังสายตา">ชิ้นงานมีฝุ่น/คราบ บดบังสายตา</option>
+                  <option value="จุดบกพร่องอยู่ตำแหน่งที่มองเห็นยาก">จุดบกพร่องอยู่ตำแหน่งที่มองเห็นยาก</option>
+                  <option value="ความเร่งรีบในการส่งมอบงาน">ความเร่งรีบในการส่งมอบงาน</option>
+                  <option value="ความผิดพลาดของผู้ตรวจสอบ (Inspector error)">ความผิดพลาดของผู้ตรวจสอบ (Inspector error)</option>
+                  <option value="อื่นๆ">อื่นๆ</option>
+                </select>
+              </div>
+
+              <div class="sm:col-span-2">
+                <label for="containmentAction" class="block text-xs text-amber-900 font-semibold mb-1">การกักกันงานทันที (Containment Action / Hold Lot)</label>
+                <input type="text" id="containmentAction" placeholder="เช่น กักกัน Lot งานทั้งหมด, คัดแยก 100% ที่ FQC, ตรวจสอบงานที่ผลิตจากเครื่องเดียวกัน" class="w-full text-xs bg-white border border-amber-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+              </div>
+            </div>
+          </div>
+
+          <!-- Problem Description, Root Cause, Actions -->
+          <div class="space-y-4">
+            <div>
+              <label for="description" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                รายละเอียดอาการของปัญหา (Problem Details & Symptoms) <span class="text-red-500">*</span>
+              </label>
+              <textarea id="description" rows="3" required placeholder="อธิบายอาการที่พบอย่างละเอียด เช่น มีเสียงดังที่สปินเดิล, งานกัดเลยเส้นขอบ 0.3mm, ดอกหักจังหวะเข้ามุม..." class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label for="rootCause" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  สาเหตุที่ตรวจพบ (Root Cause Analysis)
+                </label>
+                <textarea id="rootCause" rows="2" placeholder="เช่น ฝุ่นอุดตันท่อดูด, ใช้ดอกเราเตอร์เกินอายุการใช้งาน, เซ็ตความเร็ว Feed สูงเกินไป..." class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+              </div>
+
+              <div>
+                <label for="correctiveAction" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  การแก้ไขและมาตรการป้องกัน (Corrective Action / CAPA)
+                </label>
+                <textarea id="correctiveAction" rows="2" placeholder="เช่น เปลี่ยนดอกเราเตอร์ใหม่, คาลิเบรต Offset แกน Z, กำชับผู้ปฏิบัติงานตรวจ First Piece..." class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Selection -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="status" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                สถานะการดำเนินการ (Ticket Status) <span class="text-red-500">*</span>
+              </label>
+              <select id="status" required class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="open">🔴 รอดำเนินการ (Open)</option>
+                <option value="in_progress">🔵 กำลังตรวจสอบ/แก้ไข (In Progress)</option>
+                <option value="resolved">🟢 แก้ไขแล้วเสร็จ (Resolved)</option>
+                <option value="closed">⚪ ปิดเคสเรียบร้อย (Closed)</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="supervisorName" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                หัวหน้างาน / ผู้ตรวจสอบ (Supervisor)
+              </label>
+              <input type="text" id="supervisorName" placeholder="ชื่อหัวหน้ากะ / Leader" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- 3. Image Upload Section (Multi-Image, Mobile Camera, Auto Compression) -->
+          <div class="border-t border-slate-200 pt-5">
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <i class="fa-solid fa-camera text-blue-600 mr-1"></i> แนบรูปภาพประกอบรายงาน (Photos)
+              </label>
+              <span class="text-xs text-slate-400">รองรับหลายรูปภาพ, ถ่ายจากมือถือได้ทันที</span>
+            </div>
+
+            <!-- Upload Controls & Drop Zone -->
+            <div class="border-2 border-dashed border-slate-300 rounded-2xl p-4 sm:p-6 text-center hover:bg-slate-50 transition cursor-pointer relative" onclick="triggerFileInput()">
+              <input type="file" id="imageInput" multiple accept="image/*" class="hidden" onchange="handleImageSelection(event)">
+              
+              <div class="space-y-2">
+                <div class="w-12 h-12 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div class="text-sm font-semibold text-slate-700">คลิกเพื่อเลือกไฟล์ หรือ ลากรูปภาพมาวางที่นี่</div>
+                <p class="text-xs text-slate-500">ระบบจะทำการบีบอัดภาพให้อัตโนมัติ เพื่อให้โหลดเร็วและไม่เปลืองพื้นที่</p>
+                
+                <!-- Direct Mobile Camera Trigger -->
+                <div class="pt-2">
+                  <label for="cameraInput" onclick="event.stopPropagation()" class="inline-flex items-center space-x-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer transition">
+                    <i class="fa-solid fa-camera"></i>
+                    <span>ถ่ายรูปด้วยกล้องมือถือ</span>
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" onchange="handleImageSelection(event)">
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Image Previews Container -->
+            <div id="image-preview-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+              <!-- Dynamically populated previews -->
+            </div>
+          </div>
+
+          <!-- Form Action Buttons -->
+          <div class="border-t border-slate-200 pt-5 flex flex-wrap items-center justify-end gap-3">
+            <button type="button" onclick="resetForm()" class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-sm font-semibold transition">
+              <i class="fa-solid fa-arrow-rotate-left mr-1.5"></i> ล้างข้อมูล
+            </button>
+            <button type="submit" id="btn-save-report" class="px-7 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md transition flex items-center space-x-2">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span id="btn-save-text">บันทึกรายงานปัญหา</span>
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+
+    </section>
+
+    <!-- ================= VIEW 3: RECORDS LIST & TABLE ================= -->
+    <section id="view-records" class="hidden space-y-4">
+      
+      <!-- Search and Filter Bar -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 space-y-3">
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          
+          <!-- Search Input -->
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+            <input type="text" id="record-search" oninput="filterRecords()" placeholder="ค้นหา: ชื่อเครื่อง (เช่น TONGTAI 10, ROUTER_VIA 33), Lot No, Part No, หัวข้อปัญหา, ผู้รายงาน..." class="w-full text-sm pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+
+          <!-- Filters -->
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="filter-type" onchange="filterRecords()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="all">ทุกประเภท (All Types)</option>
+              <option value="internal">🔴 ภายในแผนก ROUTER</option>
+              <option value="escaped">⚠️ งานหลุดออกไป</option>
+            </select>
+
+            <select id="filter-machine-group" onchange="filterRecords()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="all">ทุกกลุ่มเครื่องจักร</option>
+              <option value="TONGTAI">กลุ่ม TONGTAI (10-27, 43-54)</option>
+              <option value="ROUTER_VIA">กลุ่ม ROUTER_VIA (33-42)</option>
+            </select>
+
+            <select id="filter-status" onchange="filterRecords()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="all">ทุกสถานะ (All Status)</option>
+              <option value="open">🔴 รอดำเนินการ</option>
+              <option value="in_progress">🔵 กำลังแก้ไข</option>
+              <option value="resolved">🟢 แก้ไขเสร็จสิ้น</option>
+              <option value="closed">⚪ ปิดเคส</option>
+            </select>
+
+            <button onclick="exportFilteredExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5" title="ส่งออกเป็น Excel">
+              <i class="fa-solid fa-file-excel"></i>
+              <span class="hidden sm:inline">Excel</span>
+            </button>
+          </div>
+
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+          <span>แสดง <strong id="record-filtered-count" class="text-slate-800">0</strong> จากทั้งหมด <strong id="record-total-count" class="text-slate-800">0</strong> รายการ</span>
+          <div class="flex items-center space-x-2">
+            <button onclick="sortRecords('date_desc')" class="hover:text-blue-600 transition">วันที่ล่าสุด <i class="fa-solid fa-arrow-down-short-wide"></i></button>
+            <span class="text-slate-300">|</span>
+            <button onclick="sortRecords('defect_desc')" class="hover:text-blue-600 transition">งานเสียมากสุด <i class="fa-solid fa-arrow-down-9-1"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop Table View -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hidden md:block">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-50 text-slate-700 uppercase font-semibold text-[11px] border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3">วัน/เวลา & กะ</th>
+                <th class="px-3 py-3">ประเภท</th>
+                <th class="px-3 py-3">เครื่องจักร</th>
+                <th class="px-4 py-3">หัวข้อปัญหา & รายละเอียด</th>
+                <th class="px-3 py-3">Lot / P/N</th>
+                <th class="px-3 py-3 text-center">งานเสีย (NG)</th>
+                <th class="px-3 py-3 text-center">รูปถ่าย</th>
+                <th class="px-3 py-3">สถานะ</th>
+                <th class="px-4 py-3 text-right">การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="records-table-body" class="divide-y divide-slate-100">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+        <div id="records-table-empty" class="hidden text-center py-12 text-slate-400">
+          <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
+          <p class="text-sm">ไม่พบข้อมูลรายงานตามเงื่อนไขที่ค้นหา</p>
+        </div>
+      </div>
+
+      <!-- Mobile Cards View -->
+      <div id="records-cards-container" class="md:hidden space-y-3">
+        <!-- Dynamically populated cards on mobile -->
+      </div>
+
+    </section>
+
+    <!-- ================= VIEW 4: CALENDAR ================= -->
+    <section id="view-calendar" class="hidden space-y-5">
+      
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+        <!-- Calendar Header Controls -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center space-x-3">
+            <h2 id="calendar-month-year" class="text-base sm:text-lg font-bold text-slate-800">ตุลาคม 2026</h2>
+            <button onclick="goToCurrentMonth()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition font-medium">เดือนปัจจุบัน</button>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition">
+              <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <button onclick="changeMonth(1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition">
+              <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Calendar Legend -->
+        <div class="flex items-center space-x-4 text-xs text-slate-500 mb-4 pb-3 border-b border-slate-100">
+          <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-red-500 mr-1.5"></span> ปัญหาภายใน ROUTER</span>
+          <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 mr-1.5"></span> งานหลุดออกไป (Escaped)</span>
+          <span class="flex items-center text-slate-400">💡 คลิกที่วันที่เพื่อดูรายการและเพิ่มรายงาน</span>
+        </div>
+
+        <!-- 7-day Grid Header -->
+        <div class="grid grid-cols-7 gap-1 sm:gap-2 text-center text-xs font-bold text-slate-600 mb-1">
+          <div class="py-1 text-red-500">อา.</div>
+          <div class="py-1">จ.</div>
+          <div class="py-1">อ.</div>
+          <div class="py-1">พ.</div>
+          <div class="py-1">พฤ.</div>
+          <div class="py-1">ศ.</div>
+          <div class="py-1 text-blue-600">ส.</div>
+        </div>
+
+        <!-- Calendar Days Grid -->
+        <div id="calendar-days-grid" class="grid grid-cols-7 gap-1 sm:gap-2">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+      </div>
+
+      <!-- Selected Date Incidents Detail Container -->
+      <div id="calendar-selected-date-section" class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-calendar-check text-blue-600"></i>
+              <span>รายการปัญหาประจำวันที่: <span id="calendar-selected-date-label" class="text-blue-700">-</span></span>
+            </h3>
+            <p class="text-xs text-slate-400">คลิกที่เคสเพื่อดูรายละเอียดฉบับเต็ม</p>
+          </div>
+          <button id="btn-add-for-date" onclick="quickAddForSelectedDate()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-plus"></i>
+            <span>เพิ่มรายงานของวันนี้</span>
+          </button>
+        </div>
+
+        <div id="calendar-date-reports-list" class="space-y-2">
+          <p class="text-xs text-slate-400 text-center py-4">กรุณาเลือกวันที่ในปฏิทิน</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================= VIEW 5: EXPORT & REPORTS ================= -->
+    <section id="view-export" class="hidden max-w-4xl mx-auto space-y-6">
+      
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 flex items-center space-x-2">
+            <i class="fa-solid fa-file-export text-blue-600"></i>
+            <span>ดาวน์โหลด & ส่งออกรายงานปัญหาแผนก ROUTER</span>
+          </h2>
+          <p class="text-xs text-slate-500">สร้างรายงานฉบับสมบูรณ์พร้อมรูปภาพประกอบ และสถิติสำหรับนำเสนอผู้บริหาร</p>
+        </div>
+
+        <!-- Export Parameter Filters -->
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">กำหนดเงื่อนไขรายงานที่ต้องการส่งออก</h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">ตั้งแต่วันที่</label>
+              <input type="date" id="export-start-date" class="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">ถึงวันที่</label>
+              <input type="date" id="export-end-date" class="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">ประเภทรายงาน</label>
+              <select id="export-type" class="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="all">ทั้งหมด (ปัญหาภายใน & งานหลุด)</option>
+                <option value="internal">เฉพาะปัญหาภายในแผนก ROUTER</option>
+                <option value="escaped">เฉพาะงานหลุดออกไปจากแผนก (Escaped Defect)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">กลุ่มเครื่องจักร</label>
+              <select id="export-machine" class="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="all">ทุกเครื่องจักร</option>
+                <option value="TONGTAI">เฉพาะกลุ่ม TONGTAI (10-27, 43-54)</option>
+                <option value="ROUTER_VIA">เฉพาะกลุ่ม ROUTER_VIA (33-42)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Export Action Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          
+          <!-- Excel Full Export Card -->
+          <div class="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50 transition flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg">
+                <i class="fa-solid fa-file-excel"></i>
+              </div>
+              <h4 class="text-sm font-bold text-emerald-950">รายงานตาราง Excel (.xlsx)</h4>
+              <p class="text-xs text-emerald-800/80">ส่งออกข้อมูลครบทุกคอลัมน์ (วันเวลา, เครื่อง, Lot, P/N, สาเหตุ, ผู้รายงาน, การแก้ไข, จำนวนงานเสีย) เหมาะสำหรับงานวิเคราะห์สถิติ</p>
+            </div>
+            <button onclick="exportToExcelCustom()" class="mt-4 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-download"></i>
+              <span>ดาวน์โหลดไฟล์ Excel</span>
+            </button>
+          </div>
+
+          <!-- Complete ZIP archive -->
+          <div class="p-5 rounded-2xl border border-violet-200 bg-violet-50/40 hover:bg-violet-50 transition flex flex-col justify-between">
+            <div class="space-y-2"><div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center text-lg"><i class="fa-solid fa-file-zipper"></i></div><h4 class="text-sm font-bold text-violet-950">ชุดรายงาน ZIP พร้อมรูปภาพ</h4><p class="text-xs text-violet-800/80">รวม JSON รายละเอียดรายงานและรูปภาพหลักฐานของรายการตามตัวกรองที่เลือก</p></div>
+            <button onclick="exportReportsZip()" class="mt-4 w-full py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center justify-center space-x-1.5"><i class="fa-solid fa-download"></i><span>ดาวน์โหลด ZIP</span></button>
+          </div>
+
+          <!-- PDF Full Summary with Photos Card -->
+          <div class="p-5 rounded-2xl border border-blue-200 bg-blue-50/40 hover:bg-blue-50 transition flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg">
+                <i class="fa-solid fa-file-pdf"></i>
+              </div>
+              <h4 class="text-sm font-bold text-blue-950">รายงาน PDF สรุปภาพรวมพร้อมรูปถ่าย</h4>
+              <p class="text-xs text-blue-800/80">เอกสาร PDF รวบรวมสรุปผลสถิติ กราฟ และรูปภาพหลักฐานความเสียหายครบถ้วน เหมาะสำหรับส่งผู้บริหารและประชุมประจำสัปดาห์</p>
+            </div>
+            <button onclick="exportSummaryPDF()" class="mt-4 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-file-arrow-down"></i>
+              <span>สร้างและดาวน์โหลด PDF</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ================= MOBILE BOTTOM NAVIGATION ================= -->
+  <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex justify-around items-center z-40 shadow-lg">
+    <button onclick="switchTab('dashboard')" id="m-nav-dashboard" class="mobile-nav-btn active flex flex-col items-center text-slate-500 text-[10px] space-y-1">
+      <i class="fa-solid fa-chart-pie text-lg"></i>
+      <span>แดชบอร์ด</span>
+    </button>
+    <button onclick="switchTab('records')" id="m-nav-records" class="mobile-nav-btn flex flex-col items-center text-slate-500 text-[10px] space-y-1">
+      <i class="fa-solid fa-list-check text-lg"></i>
+      <span>รายการ</span>
+    </button>
+    <button onclick="switchTab('form')" id="m-nav-form" class="flex flex-col items-center text-white text-[10px]">
+      <div class="w-12 h-12 -mt-5 rounded-full bg-blue-600 flex items-center justify-center shadow-lg border-2 border-white text-xl">
+        <i class="fa-solid fa-plus"></i>
+      </div>
+      <span class="text-slate-700 font-semibold mt-0.5">แจ้งปัญหา</span>
+    </button>
+    <button onclick="switchTab('calendar')" id="m-nav-calendar" class="mobile-nav-btn flex flex-col items-center text-slate-500 text-[10px] space-y-1">
+      <i class="fa-regular fa-calendar-days text-lg"></i>
+      <span>ปฏิทิน</span>
+    </button>
+    <button onclick="switchTab('export')" id="m-nav-export" class="mobile-nav-btn flex flex-col items-center text-slate-500 text-[10px] space-y-1">
+      <i class="fa-solid fa-file-export text-lg"></i>
+      <span>ส่งออก</span>
+    </button>
+  </nav>
+
+  <!-- ================= MODAL: VIEW FULL REPORT DETAILS ================= -->
+  <div id="modal-view-detail" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+    <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span id="modal-type-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold">TYPE</span>
+          <h3 id="modal-title" class="text-base font-bold truncate">Title</h3>
+        </div>
+        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div id="modal-detail-content" class="p-6 overflow-y-auto space-y-5 text-xs text-slate-700">
+        <!-- Dynamically injected details -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button onclick="printSingleTicketPDF()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-print"></i>
+          <span>พิมพ์ใบรายงานปัญหา (PDF)</span>
+        </button>
+        <button onclick="closeDetailModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition">
+          ปิดหน้าต่าง
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= MODAL: IMAGE LIGHTBOX (ZOOM) ================= -->
+  <div id="modal-lightbox" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4" onclick="closeLightbox()">
+    <button class="absolute top-4 right-4 text-white text-2xl" onclick="closeLightbox()">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <img id="lightbox-img" src="" alt="Zoomed defect photo" class="max-w-full max-h-[85vh] rounded-lg object-contain shadow-2xl" onclick="event.stopPropagation()">
+  </div>
+
+  <!-- ================= HIDDEN PRINTABLE CONTAINER FOR A4 REPORT ================= -->
+  <div id="printable-report-container" class="hidden">
+    <!-- Populated dynamically before print or html2pdf call -->
+  </div>
+
+  <!-- Main Application Logic (v3.4) -->
+  <script src="app.js?v=3.4"></script>
+
+</body>
+</html>
