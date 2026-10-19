@@ -47,6 +47,66 @@ try {
   console.error("Firebase init general error:", err);
 }
 
+// ================= RESILIENT UX LAYER (SAFETY NET) =================
+// SweetAlert2 and the other helper libraries are loaded from a CDN. When the CDN is
+// blocked, slow, or the device is offline the library is missing and every alert used to
+// vanish silently - the save button then looked like it "did nothing" even though the
+// report was stored. This dependency-free fallback guarantees visible feedback instead.
+(function installSwalFallback() {
+  if (typeof window.Swal !== 'undefined' && window.Swal && typeof window.Swal.fire === 'function') return;
+  window.Swal = {
+    fire(titleOrOptions, text, icon) {
+      let opts = titleOrOptions;
+      if (typeof opts === 'string') opts = { title: opts, html: text, icon };
+      else opts = opts || {};
+      const title = opts.title ? String(opts.title) : '';
+      const body = opts.text ? String(opts.text)
+        : (opts.html ? String(opts.html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+      const message = [title, body].filter(Boolean).join('\n\n') || ' ';
+      if (opts.showCancelButton) {
+        const confirmed = window.confirm(message);
+        return Promise.resolve({ isConfirmed: confirmed, isDismissed: !confirmed });
+      }
+      window.alert(message);
+      return Promise.resolve({ isConfirmed: true });
+    },
+    close() {},
+    showLoading() {},
+    isVisible() { return false; }
+  };
+  console.warn('SweetAlert2 ไม่พร้อมใช้งาน (อาจถูกบล็อกหรือออฟไลน์) — สลับไปใช้กล่องแจ้งเตือนสำรองของเบราว์เซอร์');
+})();
+
+// Never let an error be invisible: surface it on screen so the user (and support) can see why.
+function showSystemNotice(message) {
+  try {
+    let el = document.getElementById('app-system-notice');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'app-system-notice';
+      el.setAttribute('role', 'alert');
+      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483000;background:#b91c1c;color:#fff;font-family:Prompt,system-ui,sans-serif;font-size:13px;line-height:1.55;padding:12px 42px 12px 14px;border-radius:12px;box-shadow:0 12px 30px rgba(15,23,42,.35);cursor:pointer';
+      el.title = 'คลิกเพื่อปิด';
+      el.addEventListener('click', () => el.remove());
+      document.body.appendChild(el);
+    }
+    el.textContent = 'ระบบแจ้งเตือน: ' + message + ' — (คลิกเพื่อปิด)';
+  } catch (ignore) { /* last-resort guard */ }
+}
+
+window.addEventListener('unhandledrejection', event => {
+  const reason = event && event.reason;
+  const msg = (reason && (reason.message || String(reason))) || 'ไม่ทราบสาเหตุ';
+  console.error('Unhandled promise rejection:', reason);
+  showSystemNotice('เกิดข้อผิดพลาดระหว่างบันทึกหรือประมวลผล: ' + msg);
+});
+
+window.addEventListener('error', event => {
+  if (!event || !event.message) return;
+  console.error('Runtime error:', event.message);
+  showSystemNotice('เกิดข้อผิดพลาด: ' + event.message);
+});
+
 // ================= INDEXED-DB PERSISTENCE (ZERO-DATA-LOSS) =================
 const DB_NAME = "RouterDepartmentDB";
 const DB_VERSION = 1;
@@ -285,9 +345,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   initFormDateTime();
   populateProblemCategories('internal');
   initExportDateDefaults();
-  if (!firebase.auth) {
+  if (typeof firebase === 'undefined' || !firebase.auth) {
     console.warn('Firebase Authentication SDK ไม่พร้อมใช้งาน');
     await activateRouterApp({uid:'local-session', email:'ผู้ใช้งาน'}, 'operator');
+    showSystemNotice('ไม่พบ Firebase SDK — บันทึกได้เฉพาะในเครื่องนี้ ยังไม่ซิงค์ขึ้นคลาวด์');
     return;
   }
   firebase.auth().onAuthStateChanged(async user => {
@@ -744,7 +805,28 @@ function reloadFromFirebase() {
 async function handleFormSubmit(e) {
   e.preventDefault();
 
-  const reportType = document.querySelector('input[name="reportType"]:checked').value;
+  // Show feedback immediately. Previously, if a CDN script was blocked, the first Swal call
+  // threw and the whole handler aborted silently, so the button appeared to do nothing.
+  const btnSave = document.getElementById('btn-save-report');
+  if (btnSave) btnSave.disabled = true;
+  setText('btn-save-text', 'กำลังบันทึก...');
+
+  const editDocId = (document.getElementById('edit-doc-id') || {}).value || '';
+
+  try {
+    // Validate explicitly: if a required control is not focusable the browser fails silently.
+    const formEl = document.getElementById('incident-form');
+    if (formEl && typeof formEl.checkValidity === 'function' && !formEl.checkValidity()) {
+      if (formEl.reportValidity) formEl.reportValidity();
+      await Swal.fire({
+        icon: 'warning',
+        title: 'กรอกข้อมูลไม่ครบถ้วน',
+        text: 'กรุณากรอกช่องที่มีเครื่องหมาย * ให้ครบก่อนบันทึก'
+      });
+      return;
+    }
+
+    const reportType = document.querySelector('input[name="reportType"]:checked').value;
   let machineName = document.getElementById('machineName').value;
   if (machineName === 'OTHER') {
     machineName = document.getElementById('customMachineInput').value.trim() || 'OTHER';
@@ -771,8 +853,6 @@ async function handleFormSubmit(e) {
   const escapedTo = reportType === 'escaped' ? document.getElementById('escapedTo').value : '';
   const escapedRootCause = reportType === 'escaped' ? document.getElementById('escapedRootCause').value : '';
   const containmentAction = reportType === 'escaped' ? document.getElementById('containmentAction').value.trim() : '';
-
-  const editDocId = document.getElementById('edit-doc-id').value;
 
   // Determine Machine Group (TONGTAI, ROUTER_VIA, OTHER)
   let machineGroup = 'OTHER';
@@ -840,12 +920,7 @@ async function handleFormSubmit(e) {
     }
   }
 
-  // Safe button state update
-  const btnSave = document.getElementById('btn-save-report');
-  if (btnSave) btnSave.disabled = true;
-  setText('btn-save-text', 'กำลังบันทึก...');
-
-  try {
+  // Persist and refresh the UI (cloud sync happens below)
     // 1. IMMEDIATELY update in-memory state
     const existingIdx = allReports.findIndex(r => r.id === docId);
     if (existingIdx !== -1) {
@@ -894,11 +969,15 @@ async function handleFormSubmit(e) {
 
   } catch (error) {
     console.error("Save error:", error);
-    Swal.fire({
-      icon: 'error',
-      title: 'บันทึกข้อมูลไม่สำเร็จ',
-      text: error.message || 'โปรดลองอีกครั้ง'
-    });
+    try {
+      Swal.fire({
+        icon: 'error',
+        title: 'บันทึกข้อมูลไม่สำเร็จ',
+        text: error.message || 'โปรดลองอีกครั้ง'
+      });
+    } catch (notifyError) {
+      showSystemNotice('บันทึกข้อมูลไม่สำเร็จ: ' + (error.message || error));
+    }
   } finally {
     if (btnSave) btnSave.disabled = false;
     setText('btn-save-text', editDocId ? 'บันทึกการแก้ไข' : 'บันทึกรายงานปัญหา');
@@ -1159,6 +1238,11 @@ function updateDashboardKPIs(reports) {
 }
 
 function renderDashboardCharts(reports) {
+  // If the Chart.js CDN is blocked the dashboard should still load normally.
+  if (typeof Chart === 'undefined') {
+    console.warn('Chart.js ไม่พร้อมใช้งาน — ข้ามการวาดกราฟ');
+    return;
+  }
   // Chart 1: Ratio Internal vs Escaped
   const internalCount = reports.filter(r => r.reportType === 'internal').length;
   const escapedCount = reports.filter(r => r.reportType === 'escaped').length;
