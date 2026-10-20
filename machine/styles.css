@@ -14,3 +14,61 @@
 .tab i { transition: transform .18s ease, filter .18s ease; }
 .tab:hover i { transform: translateY(-2px) scale(1.08); filter: drop-shadow(0 2px 3px currentColor); }
 .tab.active i { color: #fde68a; }
+
+/* =========================================================
+   PRINT STYLES
+   The report is rendered into #print-area in the main document,
+   then the main window is printed. Everything else (header, nav,
+   dashboard, charts, buttons, lightbox) is hidden so the paper
+   only ever contains the report — this also fixes mobile browsers,
+   which often ignore iframe / new-window printing.
+   ========================================================= */
+#print-area { display: none; }
+
+@media print {
+  /* Zero page margin removes the browser's header/footer strip
+     (the about:blank / file:/// URL and date). Visual margin is
+     recreated as body padding below. */
+  @page { size: A4 portrait; margin: 0; }
+
+  html, body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+  }
+
+  /* Hide every part of the app UI. */
+  body > *:not(#print-area) { display: none !important; }
+
+  #print-area {
+    display: block !important;
+    padding: 12mm;
+    color: #172033;
+    font: 12px Arial, sans-serif;
+  }
+
+  #print-area h1 { font-size: 20px; margin: 0 0 8px; }
+  #print-area p { line-height: 1.6; margin: 0 0 12px; }
+  #print-area table { border-collapse: collapse; width: 100%; font-size: 10px; }
+  #print-area td, #print-area th {
+    border: 1px solid #999;
+    padding: 6px;
+    text-align: left;
+    vertical-align: top;
+    word-break: break-word;
+  }
+  #print-area th { background: #eaf0f9; }
+  #print-area img { max-width: 100px; max-height: 90px; object-fit: contain; }
+  #print-area tr { break-inside: avoid; page-break-inside: avoid; }
+  #print-area .photos { display: flex; flex-wrap: wrap; gap: 4px; }
+  #print-area .sign { display: flex; gap: 40px; margin-top: 45px; }
+  #print-area .sign div {
+    width: 33%;
+    border-top: 1px solid #555;
+    padding-top: 8px;
+    text-align: center;
+  }
+
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+}
