@@ -78,12 +78,195 @@ body {
   background-color: #f0fdf4;
 }
 
-/* Print Styles for A4 Incident Report with Photos */
+/* =========================================================
+   A4 PRINT & PDF STYLES (Incident Report with Photos)
+   A4 = 210 x 297 mm. Page margin is 0 so no browser header/footer
+   (file:/// URL, date) is printed; a visual margin is applied as
+   padding inside .print-page and the whole sheet is auto-scaled to
+   a single page when needed.
+   ========================================================= */
+/* Zero page margin removes the browser's default header/footer strip
+   (the file:///... URL and date that otherwise print at the top/bottom).
+   The visual margin is recreated as padding inside .print-page instead. */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+/* Shared A4 canvas sizing (applied on screen preview and PDF export too).
+   A4 = 210 x 297 mm. @page margin is 0 so the browser prints no header/footer;
+   the visual margin is recreated here as 8mm padding. */
+.print-page {
+  width: 210mm;
+  max-width: 210mm;
+  padding: 8mm;
+  margin: 0 auto;
+  box-sizing: border-box;
+  font-size: 10pt;
+  line-height: 1.35;
+  background: #ffffff;
+}
+
+/* Keep every direct block inside the sheet from overflowing the 190mm box. */
+.print-page * {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+/* ---- A4 screen/PDF layout (applies to html2pdf export too, not only print) ---- */
+/* Tables must never be wider than the sheet: fixed layout + wrapping keeps them
+   inside 190mm instead of pushing the sheet to a second page. */
+.print-page table {
+  width: 100% !important;
+  table-layout: fixed;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  border-collapse: collapse;
+}
+
+.print-page table td,
+.print-page table th {
+  padding: 3px 4px;
+  line-height: 1.25;
+}
+
+.print-page img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Two-column photographic evidence grid that never exceeds the page height. */
+.print-page .print-image-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 6mm !important;
+}
+
+.print-page .print-image-item {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-page .print-image-item img {
+  width: 100% !important;
+  max-height: 40mm !important;
+  object-fit: cover !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* Scale photos down as their count grows (applies to html2pdf too), so a
+   report keeps fitting on one A4 sheet no matter how many photos are attached. */
+.print-page .print-image-grid.photo-count-5 .print-image-item img,
+.print-page .print-image-grid.photo-count-6 .print-image-item img {
+  max-height: 34mm !important;
+}
+.print-page .print-image-grid.photo-count-7 .print-image-item img,
+.print-page .print-image-grid.photo-count-8 .print-image-item img {
+  max-height: 28mm !important;
+}
+.print-page .print-image-grid.photo-count-9 .print-image-item img,
+.print-page .print-image-grid.photo-count-10 .print-image-item img,
+.print-page .print-image-grid.photo-count-11 .print-image-item img,
+.print-page .print-image-grid.photo-count-12 .print-image-item img {
+  max-height: 24mm !important;
+}
+
+/* Keep the page-break helpers working outside print media (html2pdf). */
+.print-page .page-break-inside-avoid {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Compact vertical rhythm so a full report (header + metadata + 3 sections +
+   photo grid + sign-off) fits within the 277mm A4 printable height. The
+   Tailwind mb-3/mb-4/mb-5/mt-6 utilities are toned down inside the sheet only. */
+.print-page .mb-3 { margin-bottom: 4mm !important; }
+.print-page .mb-4 { margin-bottom: 5mm !important; }
+.print-page .mb-5 { margin-bottom: 5mm !important; }
+.print-page .mt-6 { margin-top: 6mm !important; }
+.print-page .mb-2 { margin-bottom: 2.5mm !important; }
+.print-page .pb-3 { padding-bottom: 3mm !important; }
+.print-page .p-2\.5 { padding: 4px 6px !important; }
+.print-page .p-3 { padding: 6px !important; }
+.print-page .p-2 { padding: 4px 6px !important; }
+.print-page .space-y-6 > * + * { margin-top: 6mm !important; }
+
+/* Compact single-page mode: shrink every text block and photo so a full report
+   (header + metadata + 3 sections + photo grid + sign-off) fits inside one A4
+   sheet. Defined outside @media print so html2pdf export uses it too. */
+.print-page.print-one-page {
+  font-size: 9pt !important;
+  line-height: 1.22 !important;
+}
+
+.print-page.print-one-page .mb-3 { margin-bottom: 1.5mm !important; }
+.print-page.print-one-page .mb-4 { margin-bottom: 1.8mm !important; }
+.print-page.print-one-page .mb-5 { margin-bottom: 1.8mm !important; }
+.print-page.print-one-page .mb-2 { margin-bottom: 1.2mm !important; }
+.print-page.print-one-page .mt-6 { margin-top: 2mm !important; }
+.print-page.print-one-page .pb-3 { padding-bottom: 1.5mm !important; }
+.print-page.print-one-page .p-2\.5 { padding: 2px 4px !important; }
+.print-page.print-one-page .p-3 { padding: 3px !important; }
+.print-page.print-one-page .p-2 { padding: 2px 4px !important; }
+.print-page.print-one-page .space-y-6 > * + * { margin-top: 3mm !important; }
+.print-page.print-one-page .space-y-1 > * + * { margin-top: 1px !important; }
+.print-page.print-one-page .rounded-2xl { border-radius: 8px !important; }
+
+.print-page.print-one-page table td,
+.print-page.print-one-page table th {
+  padding: 1px 3px !important;
+  line-height: 1.1 !important;
+}
+
+.print-page.print-one-page .text-xl { font-size: 12pt !important; }
+.print-page.print-one-page .text-lg { font-size: 10.5pt !important; }
+.print-page.print-one-page .text-sm { font-size: 8.5pt !important; }
+.print-page.print-one-page .text-xs { font-size: 7.5pt !important; }
+.print-page.print-one-page .text-\[10px\] { font-size: 7pt !important; }
+.print-page.print-one-page .text-\[9px\] { font-size: 6.5pt !important; }
+
+/* Trim section headers and bodies hard so everything fits on one sheet. */
+.print-page.print-one-page h3.text-xs { padding: 2px 4px !important; }
+.print-page.print-one-page .p-1\.5 { padding: 2px 4px !important; }
+.print-page.print-one-page .leading-relaxed { line-height: 1.3 !important; }
+
+.print-page.print-one-page .print-image-grid {
+  gap: 2mm !important;
+}
+
+.print-page.print-one-page .print-image-item img {
+  max-height: 30mm !important;
+}
+
+/* Scale photos down as their count grows so the sheet always stays 1 page. */
+.print-page.print-one-page .print-image-grid.photo-count-5 .print-image-item img,
+.print-page.print-one-page .print-image-grid.photo-count-6 .print-image-item img {
+  max-height: 19mm !important;
+}
+.print-page.print-one-page .print-image-grid.photo-count-7 .print-image-item img,
+.print-page.print-one-page .print-image-grid.photo-count-8 .print-image-item img {
+  max-height: 16mm !important;
+}
+.print-page.print-one-page .print-image-grid.photo-count-9 .print-image-item img,
+.print-page.print-one-page .print-image-grid.photo-count-10 .print-image-item img,
+.print-page.print-one-page .print-image-grid.photo-count-11 .print-image-item img,
+.print-page.print-one-page .print-image-grid.photo-count-12 .print-image-item img {
+  max-height: 13mm !important;
+}
+
+/* Keep the photo caption very tight inside the evidence grid. */
+.print-page.print-one-page .print-image-item .mt-1 { margin-top: 1px !important; }
+
 @media print {
+  html,
   body {
     background-color: #ffffff !important;
     color: #000000 !important;
-    font-size: 11pt !important;
+    min-width: 0 !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 10.5pt !important;
   }
 
   /* Hide UI elements during print */
@@ -91,25 +274,29 @@ body {
     display: none !important;
   }
 
-  /* Unhide printable modal/container */
+  /* Unhide printable container and neutralize screen-only layout */
   #printable-report-container {
     display: block !important;
     position: static !important;
     width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
+  /* One A4 sheet only: keep the 210mm width + 8mm padding from the base rule
+     so the browser's own header/footer area stays empty. Width/max-width are
+     deliberately NOT !important, so fitSheetToOnePage() can override them for
+     very long reports. */
   .print-page {
-    page-break-after: always;
+    max-width: none;
+    min-height: auto !important;
     box-shadow: none !important;
     border: none !important;
-    padding: 0 !important;
-    width: 100% !important;
-  }
-
-  .print-page:last-child {
-    page-break-after: avoid;
+    margin: 0 auto !important;
+    padding: 8mm;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   /* Force color printing */
@@ -118,18 +305,53 @@ body {
     print-color-adjust: exact !important;
   }
 
-  .print-image-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 12px !important;
+  /* Never let wide elements push the layout past the A4 width */
+  .print-page table {
+    width: 100% !important;
+    table-layout: fixed;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .print-page table td,
+  .print-page table th {
+    padding: 3px 4px !important;
+    line-height: 1.25 !important;
+  }
+
+  .print-page img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Page-break helpers */
+  .page-break-inside-avoid,
+  .print-image-item {
+    break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 
+  .print-image-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
   .print-image-item img {
-    max-height: 220px !important;
+    max-height: 45mm !important;
     width: 100% !important;
     object-fit: cover !important;
     border: 1px solid #cbd5e1 !important;
+  }
+
+  .print-image-grid,
+  .print-image-item,
+  .print-page .space-y-6,
+  .print-page .page-break-inside-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
 
@@ -140,20 +362,6 @@ body {
 }
 .pulse-sync {
   animation: pulseSubtle 2s infinite ease-in-out;
-}
-
-/* Photo Thumbnail Hover Effect */
-.photo-thumb-container {
-  position: relative;
-  overflow: hidden;
-  border-radius: 0.5rem;
-}
-.photo-thumb-container:hover .photo-overlay {
-  opacity: 1;
-}
-.photo-overlay {
-  opacity: 0;
-  transition: opacity 0.2s ease;
 }
 
 /* Machine Badge Styling */
@@ -355,46 +563,9 @@ label {
   min-width: 0;
 }
 
-.photo-thumb-container img {
-  display: block;
-}
-
-.photo-thumb-container .photo-overlay {
-  pointer-events: none;
-}
-
-.photo-thumb-container:hover .photo-overlay,
-.photo-thumb-container:focus-within .photo-overlay {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Make photo actions available on touch devices without hover. */
-@media (hover: none) {
-  .photo-thumb-container .photo-overlay {
-    opacity: 1;
-    pointer-events: auto;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.58), transparent 70%);
-    align-items: flex-start;
-    justify-content: flex-end;
-    padding: 0.35rem;
-  }
-}
-
-#image-preview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-  gap: 0.75rem;
-}
-
-#image-preview-grid .photo-thumb-container {
-  min-width: 0;
-}
-
-#image-preview-grid .photo-thumb-container img {
-  width: 100%;
-  height: 6rem;
-  object-fit: cover;
+/* Image lightbox (aligned with โหมด 2): hidden class must override flex display. */
+#photoLightbox.hidden {
+  display: none;
 }
 
 #connection-status {
@@ -419,15 +590,6 @@ svg {
 
 img {
   height: auto;
-}
-
-#modal-lightbox {
-  overscroll-behavior: contain;
-}
-
-#lightbox-img {
-  max-height: 88dvh;
-  object-fit: contain;
 }
 
 @media (max-width: 767px) {
@@ -479,10 +641,6 @@ img {
   #view-form .grid {
     column-gap: 0.625rem;
     row-gap: 0.75rem;
-  }
-
-  #image-preview-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

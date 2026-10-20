@@ -20,13 +20,12 @@
   <!-- SheetJS (xlsx) for Excel export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   
-  <!-- html2pdf.js for full PDF export with images -->
+  <!-- html2pdf.js for full PDF export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   
   <!-- Firebase Compat Libraries for broad compatibility -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -684,31 +683,21 @@
               <span class="text-xs text-slate-400">รองรับหลายรูปภาพ, ถ่ายจากมือถือได้ทันที</span>
             </div>
 
-            <!-- Upload Controls & Drop Zone -->
-            <div class="border-2 border-dashed border-slate-300 rounded-2xl p-4 sm:p-6 text-center hover:bg-slate-50 transition cursor-pointer relative" onclick="triggerFileInput()">
-              <input type="file" id="imageInput" multiple accept="image/*" class="hidden" onchange="handleImageSelection(event)">
-              
-              <div class="space-y-2">
-                <div class="w-12 h-12 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
-                  <i class="fa-solid fa-cloud-arrow-up"></i>
-                </div>
-                <div class="text-sm font-semibold text-slate-700">คลิกเพื่อเลือกไฟล์ หรือ ลากรูปภาพมาวางที่นี่</div>
-                <p class="text-xs text-slate-500">ระบบจะทำการบีบอัดภาพให้อัตโนมัติ เพื่อให้โหลดเร็วและไม่เปลืองพื้นที่</p>
-                
-                <!-- Direct Mobile Camera Trigger -->
-                <div class="pt-2">
-                  <label for="cameraInput" onclick="event.stopPropagation()" class="inline-flex items-center space-x-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer transition">
-                    <i class="fa-solid fa-camera"></i>
-                    <span>ถ่ายรูปด้วยกล้องมือถือ</span>
-                    <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" onchange="handleImageSelection(event)">
-                  </label>
-                </div>
+            <div class="rounded-2xl bg-slate-50 border border-dashed border-slate-300 p-4">
+              <div class="flex flex-wrap gap-2">
+                <label class="inline-flex items-center space-x-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer transition">
+                  <i class="fa-solid fa-images"></i>
+                  <span>เลือกรูปภาพ</span>
+                  <input id="images" type="file" accept="image/*" multiple class="hidden">
+                </label>
+                <label class="inline-flex items-center space-x-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer transition">
+                  <i class="fa-solid fa-camera"></i>
+                  <span>ถ่ายภาพด่วน</span>
+                  <input id="camera" type="file" accept="image/*" capture="environment" multiple class="hidden">
+                </label>
               </div>
-            </div>
-
-            <!-- Image Previews Container -->
-            <div id="image-preview-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-              <!-- Dynamically populated previews -->
+              <p class="text-xs text-slate-500 mt-2">ระบบบีบอัดภาพก่อนบันทึกอัตโนมัติ เพื่อให้บันทึกและซิงค์ได้รวดเร็ว</p>
+              <div id="previews" class="flex flex-wrap gap-3 mt-3"></div>
             </div>
           </div>
 
@@ -1041,11 +1030,9 @@
   </div>
 
   <!-- ================= MODAL: IMAGE LIGHTBOX (ZOOM) ================= -->
-  <div id="modal-lightbox" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4" onclick="closeLightbox()">
-    <button class="absolute top-4 right-4 text-white text-2xl" onclick="closeLightbox()">
-      <i class="fa-solid fa-xmark"></i>
-    </button>
-    <img id="lightbox-img" src="" alt="Zoomed defect photo" class="max-w-full max-h-[85vh] rounded-lg object-contain shadow-2xl" onclick="event.stopPropagation()">
+  <div id="photoLightbox" class="fixed inset-0 bg-black/90 z-[60] hidden flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+    <button class="absolute top-4 right-4 text-white text-3xl" onclick="event.stopPropagation();document.getElementById('photoLightbox').classList.add('hidden')">×</button>
+    <img id="lightboxImg" src="" alt="ภาพขยาย" class="max-w-full max-h-[85vh] rounded-lg object-contain shadow-2xl" onclick="event.stopPropagation()">
   </div>
 
   <!-- ================= HIDDEN PRINTABLE CONTAINER FOR A4 REPORT ================= -->

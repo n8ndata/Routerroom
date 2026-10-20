@@ -16,7 +16,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app = null, db = null, storage = null, rtdb = null;
+let app = null, db = null, rtdb = null;
 try {
   if (!firebase.apps.length) {
     app = firebase.initializeApp(firebaseConfig);
@@ -35,13 +35,6 @@ try {
   // Realtime Database is the authoritative cloud store for this secured build.
   // Firestore is intentionally not used for writes because its rules cannot read RTDB role records.
   db = null;
-
-  // Storage
-  try {
-    storage = firebase.storage();
-  } catch (e) {
-    console.warn("Storage init warning:", e);
-  }
 
 } catch (err) {
   console.error("Firebase init general error:", err);
@@ -236,7 +229,7 @@ function removeFromLocalStorageFallback(id) {
 let allReports = [];
 let filteredReports = [];
 let currentTab = 'dashboard';
-let currentUploadedImages = []; // Stores objects { id, dataUrl, name }
+let photos = []; // Stores objects { name, type, dataUrl, caption }
 let selectedDateForCalendar = null;
 let currentCalendarDate = new Date();
 
@@ -345,6 +338,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   initFormDateTime();
   populateProblemCategories('internal');
   initExportDateDefaults();
+
+  // Bind image inputs (Mode 2 style: pick or capture, auto-compress on select)
+  const imagesInput = document.getElementById('images');
+  const cameraInput = document.getElementById('camera');
+  if (imagesInput) imagesInput.addEventListener('change', async e => { await addImageFiles(e.target.files); e.target.value = ''; });
+  if (cameraInput) cameraInput.addEventListener('change', async e => { await addImageFiles(e.target.files); e.target.value = ''; });
+
   if (typeof firebase === 'undefined' || !firebase.auth) {
     console.warn('Firebase Authentication SDK ไม่พร้อมใช้งาน');
     await activateRouterApp({uid:'local-session', email:'ผู้ใช้งาน'}, 'operator');
@@ -467,123 +467,80 @@ function calculateDefectRate() {
   }
 }
 
-// ================= IMAGE HANDLING & AUTO COMPRESSION =================
-function triggerFileInput() {
-  document.getElementById('imageInput').click();
-}
-
-async function handleImageSelection(event) {
-  const files = event.target.files;
-  if (!files || files.length === 0) return;
-
-  Swal.fire({
-    title: 'กำลังประมวลผลรูปภาพ...',
-    text: 'กำลังปรับขนาดและบีบอัดรูปภาพให้เหมาะสมกับการใช้งาน',
-    allowOutsideClick: false,
-    didOpen: () => Swal.showLoading()
-  });
-
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    try {
-      const compressedDataUrl = await compressImage(file, 1024, 0.62);
-      const imgObj = {
-        id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-        name: file.name,
-        dataUrl: compressedDataUrl
-      };
-      currentUploadedImages.push(imgObj);
-    } catch (e) {
-      console.error("Image compression error:", e);
-    }
-  }
-
-  renderImagePreviews();
-  Swal.close();
-  event.target.value = '';
-}
-
-// Canvas-based client-side compression
-function compressImage(file, maxDimension, quality) {
+// ================= IMAGE HANDLING & AUTO COMPRESSION (aligned with โหมด 2) =================
+// Fast canvas-based compression that keeps quality but stays small, so reports
+// upload and sync to Firebase quickly.
+async function compressImageFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (readerEvent) => {
-      const image = new Image();
-      image.src = readerEvent.target.result;
-      image.onload = () => {
-        let width = image.width;
-        let height = image.height;
-
-        if (width > height) {
-          if (width > maxDimension) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          }
-        } else {
-          if (height > maxDimension) {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-        }
-
+    reader.onerror = reject;
+    reader.onload = () => {
+      const im = new Image();
+      im.onerror = reject;
+      im.onload = () => {
+        const maxDim = 1400;
+        const scale = Math.min(1, maxDim / Math.max(im.width, im.height));
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(image, 0, 0, width, height);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve(dataUrl);
+        canvas.width = Math.round(im.width * scale);
+        canvas.height = Math.round(im.height * scale);
+        canvas.getContext('2d').drawImage(im, 0, 0, canvas.width, canvas.height);
+        resolve({ name: file.name, type: 'image/jpeg', dataUrl: canvas.toDataURL('image/jpeg', 0.78), caption: '' });
       };
-      image.onerror = (error) => reject(error);
+      im.src = reader.result;
     };
-    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
   });
+}
+
+async function addImageFiles(files) {
+  const list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
+  if (!list.length) return;
+  for (const file of list) {
+    try { photos.push(await compressImageFile(file)); }
+    catch (e) { console.error('Image compression error:', e); }
+  }
+  renderImagePreviews();
 }
 
 function renderImagePreviews() {
-  const container = document.getElementById('image-preview-grid');
+  const container = document.getElementById('previews');
   if (!container) return;
-
-  container.innerHTML = '';
-  if (currentUploadedImages.length === 0) return;
-
-  currentUploadedImages.forEach((img, idx) => {
-    const card = document.createElement('div');
-    card.className = "photo-thumb-container relative border border-slate-300 rounded-xl overflow-hidden bg-slate-100 group shadow-sm";
-    card.innerHTML = `
-      <img src="${img.dataUrl}" alt="Photo ${idx + 1}" class="w-full h-24 object-cover cursor-pointer" onclick="openLightbox('${img.dataUrl}')">
-      <div class="photo-overlay absolute inset-0 bg-black/40 flex items-center justify-center space-x-2">
-        <button type="button" onclick="openLightbox('${img.dataUrl}')" class="w-7 h-7 bg-white/90 text-slate-800 rounded-full flex items-center justify-center text-xs hover:bg-white" title="ดูภาพขยาย">
-          <i class="fa-solid fa-magnifying-glass-plus"></i>
-        </button>
-        <button type="button" onclick="removeImage('${img.id}')" class="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-700" title="ลบภาพนี้">
-          <i class="fa-solid fa-trash"></i>
-        </button>
-      </div>
-      <div class="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 truncate">
-        รูปที่ ${idx + 1}
-      </div>
-    `;
-    container.appendChild(card);
-  });
+  container.innerHTML = photos.map((p, i) => `
+    <div class="text-center">
+      <img class="w-[90px] h-[90px] object-cover rounded-xl border border-slate-300 cursor-pointer" src="${p.dataUrl}" alt="รูปแนบ" onclick="openPhoto(${i})">
+      <input class="mt-1 w-[150px] text-xs bg-white border border-slate-300 rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="คำอธิบายภาพ" value="${escapeHtml(p.caption || '')}" oninput="photos[${i}].caption=this.value">
+      <button type="button" class="mt-1 w-full text-xs bg-red-100 hover:bg-red-200 text-red-700 font-semibold px-2 py-1 rounded-lg transition" onclick="removeImage(${i})">
+        <i class="fa-solid fa-trash mr-1"></i>ลบรูป
+      </button>
+    </div>
+  `).join('');
 }
 
-function removeImage(imgId) {
-  currentUploadedImages = currentUploadedImages.filter(img => img.id !== imgId);
+function removeImage(index) {
+  photos.splice(index, 1);
   renderImagePreviews();
 }
 
-function openLightbox(src) {
-  const modal = document.getElementById('modal-lightbox');
-  const img = document.getElementById('lightbox-img');
-  img.src = src;
+function openPhoto(index) {
+  const p = photos[index];
+  if (!p) return;
+  const modal = document.getElementById('photoLightbox');
+  const img = document.getElementById('lightboxImg');
+  if (!modal || !img) return;
+  img.src = p.dataUrl;
   modal.classList.remove('hidden');
 }
 
-function closeLightbox() {
-  document.getElementById('modal-lightbox').classList.add('hidden');
+// View a photo stored on a saved report (read-only records/detail views).
+function openReportPhoto(reportId, index) {
+  const report = allReports.find(r => r.id === reportId);
+  const p = report && (report.photos || [])[index];
+  if (!p) return;
+  const modal = document.getElementById('photoLightbox');
+  const img = document.getElementById('lightboxImg');
+  if (!modal || !img) return;
+  img.src = p.dataUrl;
+  modal.classList.remove('hidden');
 }
 
 function getPendingSyncIds() {
@@ -657,7 +614,7 @@ async function writeReportToCloud(reportData) {
     );
   }
   // Firestore documents are limited to 1 MiB. Skip the secondary copy when a
-  // report (usually photos) is too large; RTDB remains the primary cloud copy.
+  // report is too large; RTDB remains the primary cloud copy.
   if (db && serializedSize < 850 * 1024) {
     jobs.push(
       Promise.resolve().then(() => db.collection("router_reports").doc(reportData.id).set(reportData))
@@ -764,8 +721,8 @@ function mergeIncomingReports(incomingList) {
       const oldTime = Date.parse(existing.updatedAt || existing.createdAt || 0) || 0;
       const newTime = Date.parse(incoming.updatedAt || incoming.createdAt || 0) || 0;
       chosen = newTime >= oldTime ? { ...existing, ...incoming } : { ...incoming, ...existing };
-      if ((!incoming.images || !incoming.images.length) && existing.images && existing.images.length) {
-        chosen.images = existing.images;
+      if ((!incoming.photos || !incoming.photos.length) && existing.photos && existing.photos.length) {
+        chosen.photos = existing.photos;
       }
     }
     map.set(incoming.id, chosen);
@@ -859,13 +816,6 @@ async function handleFormSubmit(e) {
   if (machineName.startsWith('TONGTAI')) machineGroup = 'TONGTAI';
   else if (machineName.startsWith('ROUTER_VIA')) machineGroup = 'ROUTER_VIA';
 
-  // Prepare images array
-  const images = currentUploadedImages.map(img => ({
-    id: img.id,
-    name: img.name,
-    dataUrl: img.dataUrl
-  }));
-
   // Unique report ID
   const docId = editDocId || ('REP_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
 
@@ -895,7 +845,7 @@ async function handleFormSubmit(e) {
     correctiveAction,
     status,
     supervisorName,
-    images,
+    photos,
     updatedAt: new Date().toISOString()
   };
 
@@ -903,24 +853,7 @@ async function handleFormSubmit(e) {
     reportData.createdAt = new Date().toISOString();
   }
 
-  // Upload original evidence to Firebase Storage; dataUrl is retained for offline cache and ZIP export.
-  if (storage && routerCurrentUser && Array.isArray(reportData.images)) {
-    for (const imageItem of reportData.images) {
-      if (!imageItem.dataUrl || imageItem.storageUrl) continue;
-      try {
-        const response = await fetch(imageItem.dataUrl);
-        const blob = await response.blob();
-        const safeName = (imageItem.name || 'evidence.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
-        const ref = storage.ref(`router-evidence/${docId}/${imageItem.id}_${safeName}`);
-        const uploaded = await ref.put(blob, { contentType: blob.type || 'image/jpeg', customMetadata: { reportId: docId, uploadedBy: routerCurrentUser.uid } });
-        imageItem.storageUrl = await uploaded.ref.getDownloadURL();
-      } catch (uploadError) {
-        console.warn('Firebase Storage upload failed; embedded evidence retained:', uploadError);
-      }
-    }
-  }
-
-  // Persist and refresh the UI (cloud sync happens below)
+  // Persist and refresh the UI immediately (same snappy feel as โหมด 2).
     // 1. IMMEDIATELY update in-memory state
     const existingIdx = allReports.findIndex(r => r.id === docId);
     if (existingIdx !== -1) {
@@ -930,18 +863,16 @@ async function handleFormSubmit(e) {
     }
     sortReportsDesc();
 
-    // 2. IMMEDIATELY save to IndexedDB (survives refresh 100%)
-    try {
-      await saveToIndexedDB(reportData);
-    } catch (idbErr) {
-      console.warn("IndexedDB save fallback warning:", idbErr);
-    }
-
-    // 3. Immediately refresh UI safely
+    // 2. Refresh UI right away — do not wait for IndexedDB or the network.
     try { applyDashboardFilter(); } catch (err) { console.warn("Dashboard refresh warning:", err); }
     try { filterRecords(); } catch (err) { console.warn("Records filter warning:", err); }
     try { renderCalendar(); } catch (err) { console.warn("Calendar render warning:", err); }
     try { updateBadgeCounts(); } catch (err) { console.warn("Badge count warning:", err); }
+
+    // 3. Persist to IndexedDB in the background (survives refresh) so saving stays fast.
+    Promise.resolve()
+      .then(() => saveToIndexedDB(reportData))
+      .catch(idbErr => console.warn("IndexedDB save fallback warning:", idbErr));
 
     // 4. Wait for cloud results before telling the user that cloud sync succeeded.
     const syncResult = await writeReportToCloud(reportData);
@@ -950,8 +881,7 @@ async function handleFormSubmit(e) {
       await Swal.fire({
         icon: 'success',
         title: editDocId ? 'แก้ไขข้อมูลสำเร็จ!' : 'บันทึกรายงานเรียบร้อย!',
-        text: `เครื่องจักร: ${machineName} | บันทึกในเครื่องและซิงค์ Firebase แล้ว`,
-        timer: 2200,
+        timer: 1200,
         showConfirmButton: false
       });
     } else {
@@ -1017,7 +947,7 @@ function resetForm() {
   const escapedSection = document.getElementById('escaped-section');
   if (escapedSection) escapedSection.classList.add('hidden');
 
-  currentUploadedImages = [];
+  photos = [];
   try { renderImagePreviews(); } catch (e) {}
   try { initFormDateTime(); } catch (e) {}
   try { populateProblemCategories('internal'); } catch (e) {}
@@ -1088,11 +1018,7 @@ function editReport(id) {
 
   calculateDefectRate();
 
-  currentUploadedImages = (report.images || []).map(img => ({
-    id: img.id || 'img_' + Math.random().toString(36).substr(2, 6),
-    name: img.name || 'image.jpg',
-    dataUrl: img.dataUrl || img.storageUrl
-  }));
+  photos = (report.photos || []).map(p => ({ ...p }));
   renderImagePreviews();
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1522,10 +1448,10 @@ function renderRecordsTable(reports) {
 
     const machineBadgeClass = r.machineGroup === 'TONGTAI' ? 'badge-tongtai' : (r.machineGroup === 'ROUTER_VIA' ? 'badge-router-via' : 'bg-slate-100 text-slate-700');
     const statusBadge = getStatusBadge(r.status);
-    const photoCount = (r.images || []).length;
+    const photoCount = (r.photos || []).length;
     const photoThumb = photoCount > 0
-      ? `<button onclick="openLightbox('${r.images[0].dataUrl}')" class="relative group cursor-pointer inline-block">
-          <img src="${r.images[0].dataUrl}" class="w-8 h-8 rounded-lg object-cover border border-slate-200">
+      ? `<button onclick="openReportPhoto('${r.id}', 0)" class="relative group cursor-pointer inline-block">
+          <img src="${r.photos[0].dataUrl}" class="w-8 h-8 rounded-lg object-cover border border-slate-200">
           <span class="absolute -top-1 -right-1 bg-blue-600 text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">${photoCount}</span>
          </button>`
       : `<span class="text-slate-300">-</span>`;
@@ -1601,10 +1527,9 @@ function renderRecordsCards(reports) {
       ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">ภายในแผนก</span>`
       : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">งานหลุดออกไป</span>`;
 
-    const photoCount = (r.images || []).length;
-    const photoThumb = photoCount > 0
-      ? `<img src="${r.images[0].dataUrl}" onclick="openLightbox('${r.images[0].dataUrl}')" class="w-16 h-16 rounded-xl object-cover border border-slate-200 flex-shrink-0 cursor-pointer">`
-      : '';
+    const photosHtml = (r.photos || []).slice(0, 4).map((p, i) => `
+      <img src="${p.dataUrl}" alt="${escapeHtml(p.caption || '')}" class="w-14 h-14 rounded-lg object-cover border border-slate-200 cursor-pointer" onclick="openReportPhoto('${r.id}', ${i})">
+    `).join('');
 
     card.innerHTML = `
       <div class="flex items-start justify-between">
@@ -1616,7 +1541,6 @@ function renderRecordsCards(reports) {
       </div>
 
       <div class="flex items-start space-x-3">
-        ${photoThumb}
         <div class="flex-1 min-w-0">
           <h4 class="text-xs font-bold text-slate-800 truncate cursor-pointer hover:text-blue-600" onclick="viewReportDetail('${r.id}')">${escapeHtml(r.title)}</h4>
           <p class="text-[11px] text-slate-500 line-clamp-2 mt-0.5">${escapeHtml(r.description || r.problemCategory)}</p>
@@ -1628,6 +1552,8 @@ function renderRecordsCards(reports) {
           </div>
         </div>
       </div>
+
+      ${photosHtml ? `<div class="flex flex-wrap gap-2">${photosHtml}</div>` : ''}
 
       <div class="flex items-center justify-between pt-2 border-t border-slate-100">
         <div>${getStatusBadge(r.status)}</div>
@@ -1827,29 +1753,26 @@ function viewReportDetail(id) {
 
   setText('modal-title', `${report.machineName} - ${report.title}`);
 
-  // Image Gallery in modal
-  const photos = report.images || [];
-  let photoGalleryHtml = '';
-  if (photos.length > 0) {
-    photoGalleryHtml = `
-      <div class="space-y-2 pt-3 border-t border-slate-200">
-        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
-          <i class="fa-solid fa-images text-blue-600"></i>
-          <span>รูปภาพประกอบรายงาน (${photos.length} รูป) - คลิกเพื่อดูภาพขยาย</span>
-        </h4>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          ${photos.map((p, i) => `
-            <div class="relative rounded-xl overflow-hidden border border-slate-200 group cursor-pointer" onclick="openLightbox('${p.dataUrl}')">
-              <img src="${p.dataUrl}" class="w-full h-28 object-cover group-hover:scale-105 transition duration-200">
-              <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs">
-                <i class="fa-solid fa-magnifying-glass-plus"></i>
-              </div>
+  const photos = report.photos || [];
+  const photoGalleryHtml = photos.length > 0 ? `
+    <div class="space-y-2 pt-3 border-t border-slate-200">
+      <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+        <i class="fa-solid fa-images text-blue-600"></i>
+        <span>รูปภาพประกอบรายงาน (${photos.length} รูป) - คลิกเพื่อดูภาพขยาย</span>
+      </h4>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        ${photos.map((p, i) => `
+          <div class="relative rounded-xl overflow-hidden border border-slate-200 group cursor-pointer" onclick="openReportPhoto('${report.id}', ${i})">
+            <img src="${p.dataUrl}" class="w-full h-28 object-cover group-hover:scale-105 transition duration-200">
+            <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs">
+              <i class="fa-solid fa-magnifying-glass-plus"></i>
             </div>
-          `).join('')}
-        </div>
+            ${p.caption ? `<div class="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 truncate">${escapeHtml(p.caption)}</div>` : ''}
+          </div>
+        `).join('')}
       </div>
-    `;
-  }
+    </div>
+  ` : '';
 
   contentEl.innerHTML = `
     <!-- Top Summary Metadata -->
@@ -1964,7 +1887,7 @@ function closeDetailModal() {
   document.getElementById('modal-view-detail').classList.add('hidden');
 }
 
-// ================= PRINT & PDF EXPORT (8D INCIDENT SHEET WITH PHOTOS) =================
+// ================= PRINT & PDF EXPORT (8D INCIDENT SHEET) =================
 function printSingleTicketPDF() {
   const modal = document.getElementById('modal-view-detail');
   const reportTitle = document.getElementById('modal-title')?.textContent || '';
@@ -1980,12 +1903,12 @@ function printSingleReport(id) {
   if (!report) return;
 
   const container = document.getElementById('printable-report-container');
-  const photos = report.images || [];
+  const photos = report.photos || [];
 
   const isInternal = report.reportType === 'internal';
 
   container.innerHTML = `
-    <div class="print-page bg-white p-6 max-w-4xl mx-auto border border-slate-300 font-sans text-slate-800">
+    <div class="print-page print-one-page font-sans text-slate-800">
       
       <!-- Report Header -->
       <div class="border-b-2 border-slate-800 pb-3 mb-4 flex justify-between items-center">
@@ -2001,12 +1924,15 @@ function printSingleReport(id) {
 
       <!-- Main Metadata Table -->
       <table class="w-full text-xs border-collapse border border-slate-400 mb-4">
+        <colgroup>
+          <col style="width:22%"><col style="width:28%"><col style="width:22%"><col style="width:28%">
+        </colgroup>
         <tr class="bg-slate-100">
-          <th class="border border-slate-300 p-2 text-left w-1/4">ประเภทรายงาน:</th>
+          <th class="border border-slate-300 p-2 text-left">ประเภทรายงาน:</th>
           <td class="border border-slate-300 p-2 font-bold ${isInternal ? 'text-red-700' : 'text-amber-800'}">
             ${isInternal ? '🔴 ปัญหาภายในแผนก ROUTER' : '⚠️ ปัญหาที่งานหลุดออกไปจากแผนก'}
           </td>
-          <th class="border border-slate-300 p-2 text-left w-1/4">เครื่องจักร (Machine):</th>
+          <th class="border border-slate-300 p-2 text-left">เครื่องจักร (Machine):</th>
           <td class="border border-slate-300 p-2 font-bold text-blue-800">${escapeHtml(report.machineName)}</td>
         </tr>
         <tr>
@@ -2077,17 +2003,17 @@ function printSingleReport(id) {
         </div>
       </div>
 
-      <!-- Attached Photos Grid (Included directly in report as requested) -->
+      <!-- Attached Photos Grid (Photographic Evidence) -->
       ${photos.length > 0 ? `
         <div class="mb-5 page-break-inside-avoid">
           <h3 class="text-xs font-bold uppercase text-slate-800 bg-slate-200 p-1.5 border border-slate-300">
             4. ภาพถ่ายหลักฐานประกอบรายงาน (Photographic Evidence)
           </h3>
-          <div class="print-image-grid grid grid-cols-2 gap-3 p-3 border border-slate-300 border-t-0">
+          <div class="print-image-grid grid grid-cols-2 gap-3 p-3 border border-slate-300 border-t-0 photo-count-${photos.length}">
             ${photos.map((p, idx) => `
               <div class="print-image-item border border-slate-300 p-1 rounded bg-slate-50">
-                <img src="${p.dataUrl}" class="w-full h-44 object-cover">
-                <div class="text-[10px] text-center text-slate-600 mt-1">รูปที่ ${idx + 1}: ${escapeHtml(p.name || 'รูปความเสียหาย')}</div>
+                <img src="${p.dataUrl}" class="w-full">
+                <div class="text-[10px] text-center text-slate-600 mt-1">รูปที่ ${idx + 1}: ${escapeHtml(p.caption || p.name || 'รูปความเสียหาย')}</div>
               </div>
             `).join('')}
           </div>
@@ -2133,18 +2059,82 @@ function printSingleReport(id) {
     confirmButtonText: 'ดาวน์โหลดเป็น PDF ทันที',
     cancelButtonText: 'เปิดหน้าต่างพิมพ์ (Print)'
   }).then((res) => {
+    const element = container.querySelector('.print-page');
     if (res.isConfirmed) {
-      const opt = {
-        margin: [8, 8, 8, 8],
-        filename: `ROUTER_Report_${report.machineName}_${report.reportDate || 'ticket'}.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      const element = container.querySelector('.print-page');
-      html2pdf().set(opt).from(element).save();
+      // Wait for photos, then shrink the sheet so its whole content lands on
+      // exactly one A4 page before html2pdf captures it.
+      waitForImages(element, () => {
+        fitSheetToOnePage(element, 'canvas');
+        const opt = {
+          margin: 0,
+          filename: `ROUTER_Report_${report.machineName}_${report.reportDate || 'ticket'}.pdf`,
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'], avoid: ['.print-image-item', '.page-break-inside-avoid'] }
+        };
+        html2pdf().set(opt).from(element).save();
+      });
     } else if (res.dismiss === Swal.DismissReason.cancel) {
-      window.print();
+      // Wait for photos to load, then scale down if the sheet is taller than A4.
+      waitForImages(element, () => {
+        fitSheetToOnePage(element);
+        window.print();
+      });
+    }
+  });
+}
+
+// Scale a print sheet down (uniformly) so it fits inside one A4 page.
+// A4 height is 297mm; at 96dpi that is 1122.5px. We scale only when needed,
+// and cap the shrink so text never becomes unreadably small.
+//   mode 'print'  -> CSS zoom (affects pagination in the browser print engine)
+//   mode 'canvas' -> transform scale (reliably captured by html2canvas/html2pdf)
+function fitSheetToOnePage(sheetEl, mode = 'print') {
+  if (!sheetEl) return;
+  const A4_HEIGHT_PX = 1122.5;
+  sheetEl.style.zoom = '';
+  sheetEl.style.transform = '';
+  sheetEl.style.transformOrigin = 'top left';
+  sheetEl.style.height = '';
+  sheetEl.style.width = '210mm';
+
+  const natural = sheetEl.scrollHeight;
+  if (natural <= A4_HEIGHT_PX) return; // already fits on one page
+
+  const scale = Math.max(0.6, A4_HEIGHT_PX / natural);
+
+  if (mode === 'canvas') {
+    // html2canvas reads transforms; keep the visible width at 210mm by
+    // widening the unscaled box so scale() brings it back down.
+    sheetEl.style.width = (210 / scale) + 'mm';
+    sheetEl.style.transform = `scale(${scale})`;
+    // Collapse the reserved box height so no blank second page is captured.
+    sheetEl.style.height = (natural * scale) + 'px';
+  } else {
+    // `zoom` shrinks layout size for the browser print engine.
+    sheetEl.style.width = (210 / scale) + 'mm';
+    sheetEl.style.zoom = String(scale);
+  }
+}
+
+// Run a callback once every <img> inside the element has finished loading
+// (or after a short timeout), so measurements are accurate before printing.
+function waitForImages(rootEl, done) {
+  const imgs = Array.from(rootEl.querySelectorAll('img'));
+  let remaining = imgs.length;
+  let finished = false;
+  const finish = () => { if (!finished) { finished = true; done(); } };
+
+  if (remaining === 0) { finish(); return; }
+  const timer = setTimeout(finish, 2500);
+  imgs.forEach(img => {
+    if (img.complete) {
+      remaining -= 1;
+      if (remaining === 0) { clearTimeout(timer); finish(); }
+    } else {
+      img.addEventListener('load', () => { remaining -= 1; if (remaining === 0) { clearTimeout(timer); finish(); } }, { once: true });
+      img.addEventListener('error', () => { remaining -= 1; if (remaining === 0) { clearTimeout(timer); finish(); } }, { once: true });
     }
   });
 }
@@ -2215,7 +2205,7 @@ function exportToExcelData(dataList, fileName) {
     "สถานะ": r.status || '',
     "ผู้รายงาน": r.reporterName || '',
     "หัวหน้างาน": r.supervisorName || '',
-    "จำนวนรูปภาพแนบ": (r.images || []).length
+    "จำนวนรูปภาพแนบ": (r.photos || []).length
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -2232,7 +2222,7 @@ function exportToExcelData(dataList, fileName) {
   });
 }
 
-// Export full report bundle as ZIP: JSON + CSV + original evidence images.
+// Export full report bundle as ZIP: JSON + CSV summary + evidence photos.
 async function exportReportsZip() {
   if (typeof JSZip === 'undefined') {
     Swal.fire({ icon: 'error', title: 'ไม่พบเครื่องมือ ZIP', text: 'กรุณาตรวจสอบการเชื่อมต่อ CDN แล้วลองใหม่' });
@@ -2245,7 +2235,7 @@ async function exportReportsZip() {
   }
   const zip = new JSZip();
   const folder = zip.folder('ROUTER_PROBLEM_REPORTS');
-  const cleanReports = reports.map(r => ({ ...r, images: (r.images || []).map(img => ({ id: img.id, name: img.name, storageUrl: img.storageUrl || '' })) }));
+  const cleanReports = reports.map(r => ({ ...r, photos: (r.photos || []).map(p => ({ name: p.name, caption: p.caption || '' })) }));
   folder.file('reports.json', JSON.stringify(cleanReports, null, 2));
   const csvRows = reports.map(r => ({
     'Report ID': r.id || '', 'Type': r.reportType || '', 'Date': r.reportDateTime || r.reportDate || '',
@@ -2253,7 +2243,7 @@ async function exportReportsZip() {
     'Lot': r.lotNo || '', 'Part No': r.partNo || '', 'Model Serial': r.modelSerial || '', 'Description': r.description || '',
     'Root Cause': r.rootCause || r.escapedRootCause || '', 'Corrective Action': r.correctiveAction || '',
     'Status': r.status || '', 'Severity': r.severity || '', 'Reporter': r.reporterName || '',
-    'Images': (r.images || []).length
+    'Images': (r.photos || []).length
   }));
   if (typeof XLSX !== 'undefined') {
     const ws = XLSX.utils.json_to_sheet(csvRows);
@@ -2263,23 +2253,16 @@ async function exportReportsZip() {
   const imagesFolder = folder.folder('evidence');
   let imageCount = 0;
   for (const report of reports) {
-    for (const [index, img] of (report.images || []).entries()) {
+    const list = report.photos || [];
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      if (!p.dataUrl || !p.dataUrl.startsWith('data:')) continue;
       try {
-        let dataUrl = img.dataUrl;
-        if ((!dataUrl || !dataUrl.startsWith('data:')) && img.storageUrl) {
-          const res = await fetch(img.storageUrl);
-          if (!res.ok) throw new Error('โหลดรูปจาก Storage ไม่สำเร็จ');
-          const blob = await res.blob();
-          dataUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
-          });
-        }
-        if (!dataUrl || !dataUrl.includes(',')) continue;
-        const base64 = dataUrl.split(',')[1];
-        const ext = ((img.name || '').split('.').pop() || 'jpg').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'jpg';
-        imagesFolder.file(`${String(report.id || 'report').replace(/[^a-zA-Z0-9_-]/g, '_')}_${index + 1}.${ext}`, base64, { base64: true });
+        const base64 = p.dataUrl.split(',')[1];
+        const ext = (p.name || 'jpg').split('.').pop().replace(/[^a-z0-9]/gi, '').slice(0, 6) || 'jpg';
+        imagesFolder.file(`${String(report.id || 'report').replace(/[^a-z0-9_-]/gi, '_')}_${i + 1}_${String(p.name || 'photo').replace(/[^a-z0-9_.-]/gi, '_')}.${ext}`, base64, { base64: true });
         imageCount++;
-      } catch (error) { console.warn('ZIP evidence skipped:', report.id, img.name, error); }
+      } catch (error) { console.warn('ZIP evidence skipped:', report.id, imageCount, error); }
     }
   }
   folder.file('README-TH.txt', `แพ็กเกจรายงานปัญหา ROUTER\nจำนวนรายงาน: ${reports.length}\nจำนวนรูปภาพที่แนบใน ZIP: ${imageCount}\nไฟล์ reports.json มีรายละเอียดเต็มของรายงาน\nไฟล์ reports.csv มีข้อมูลสรุปสำหรับเปิดใน Excel\n`);
@@ -2320,7 +2303,7 @@ function exportSummaryPDF() {
   const totalDefect = list.reduce((sum, r) => sum + (parseFloat(r.defectQty) || 0), 0);
 
   container.innerHTML = `
-    <div class="print-page bg-white p-6 max-w-4xl mx-auto border border-slate-300 font-sans text-slate-800">
+    <div class="print-page font-sans text-slate-800">
       
       <!-- Summary Header -->
       <div class="border-b-2 border-slate-800 pb-3 mb-4 flex justify-between items-center">
@@ -2329,7 +2312,7 @@ function exportSummaryPDF() {
           <h2 class="text-xs font-semibold text-blue-800">รายงานสรุปผลปัญหาแผนก ROUTER และการติดตามงานหลุด</h2>
         </div>
         <div class="text-right text-xs">
-          <div>ช่วงวันที่: <strong>${startDate} ถึง ${endDate}</strong></div>
+          <div>ช่วงวันที่: <strong>${startDate || '......................'} ถึง: ${endDate || '......................'}</strong></div>
           <div class="text-slate-400">จำนวนทั้งหมด: ${list.length} รายการ</div>
         </div>
       </div>
@@ -2356,6 +2339,17 @@ function exportSummaryPDF() {
 
       <!-- Table Summary -->
       <table class="w-full text-[10px] border-collapse border border-slate-400 mb-4">
+        <colgroup>
+          <col style="width:6%">
+          <col style="width:10%">
+          <col style="width:8%">
+          <col style="width:10%">
+          <col style="width:20%">
+          <col style="width:14%">
+          <col style="width:7%">
+          <col style="width:19%">
+          <col style="width:6%">
+        </colgroup>
         <thead>
           <tr class="bg-slate-200 text-slate-800">
             <th class="border border-slate-300 p-1.5 text-center">ลำดับ</th>
@@ -2382,7 +2376,7 @@ function exportSummaryPDF() {
               <td class="border border-slate-300 p-1">${escapeHtml(r.lotNo || '-')}${r.modelSerial ? `<div class="text-[9px] text-slate-500">S/N: ${escapeHtml(r.modelSerial)}</div>` : ''}</td>
               <td class="border border-slate-300 p-1 text-center font-bold ${r.defectQty > 0 ? 'text-red-600' : ''}">${r.defectQty || 0}</td>
               <td class="border border-slate-300 p-1 max-w-[180px] truncate text-[9px]">${escapeHtml(r.rootCause || r.correctiveAction || '-')}</td>
-              <td class="border border-slate-300 p-1 text-center">${(r.images || []).length > 0 ? `<img src="${r.images[0].dataUrl}" class="w-6 h-6 object-cover mx-auto rounded border">` : '-'}</td>
+              <td class="border border-slate-300 p-1 text-center">${(r.photos || []).length > 0 ? `<img src="${r.photos[0].dataUrl}" class="w-6 h-6 object-cover mx-auto rounded border">` : '-'}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -2408,11 +2402,12 @@ function exportSummaryPDF() {
   `;
 
   const opt = {
-    margin: [8, 8, 8, 8],
+    margin: 0,
     filename: `ROUTER_Summary_Report_${startDate}_${endDate}.pdf`,
     image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    html2canvas: { scale: 2, useCORS: true, windowWidth: 794, scrollX: 0, scrollY: 0 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'legacy'], avoid: ['.page-break-inside-avoid', 'tr'] }
   };
   const element = container.querySelector('.print-page');
   html2pdf().set(opt).from(element).save();
