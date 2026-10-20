@@ -25,9 +25,23 @@ window.exportReportsZip=async()=>{const list=exportRows();if(!list.length){Swal.
 function download(name,data,type){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([data],{type}));a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 window.printFiltered=()=>{const list=exportRows();if(!list.length){Swal.fire('ไม่มีข้อมูล','ไม่พบรายงานตามตัวกรอง','info');return}const rangeStart=$('record-start-date').value||'......................';const rangeEnd=$('record-end-date').value||'......................';const dateRange=`ช่วงวันที่: ${rangeStart} ถึง: ${rangeEnd}`;
 const body='<h1>รายงานปัญหาเครื่องจักร ROUTER</h1><p>'+esc(dateRange)+'<br>จำนวน '+list.length+' รายการ · พิมพ์เมื่อ '+esc(new Date().toLocaleString('th-TH'))+'</p><table><thead><tr><th>วันที่/เวลา</th><th>เครื่อง/ระดับ</th><th>อาการปัญหา</th><th>เวลาหยุด</th><th>สาเหตุ/การแก้ไข</th><th>ผู้รายงาน/ช่างผู้รับผิดชอบ</th><th>สถานะ</th><th>ภาพหลักฐาน</th></tr></thead><tbody>'+list.map(x=>'<tr><td>'+esc(x.startDate)+' '+esc(x.startTime)+'<br>จบ '+esc(x.endDate||'-')+' '+esc(x.endTime||'')+'</td><td>'+esc(x.machine)+'<br>'+esc(x.severity)+'<br>'+esc(groupOf(x.machine))+'</td><td><b>'+esc(x.category)+'</b><br>'+esc(x.description)+'</td><td>'+Number(x.downtime||0)+' นาที<br>'+Math.floor(Number(x.downtime||0)/60)+' ชม. '+(Number(x.downtime||0)%60)+' นาที</td><td><b>สาเหตุ:</b> '+esc(x.cause||'-')+'<br><b>การแก้ไข:</b> '+esc(x.action||'-')+'</td><td>'+esc(x.reporter||'-')+'<br>'+esc(x.supervisor||'-')+'</td><td>'+esc(x.status||'-')+'</td><td><div class="photos">'+(x.photos||[]).map(p=>'<div><img src="'+p.dataUrl+'"><br>'+esc(p.caption||p.name||'')+'</div>').join('')+'</div></td></tr>').join('')+'</tbody></table><div class="sign"><div>ผู้รายงาน</div><div>หัวหน้างาน ROUTER</div><div>QA/QC</div></div>';
-// Render the report into a dedicated container in the main document and print
-// the main window. Mobile browsers frequently ignore iframe/new-window printing
-// and would otherwise print the whole app UI (nav, charts, buttons); hiding
-// everything but #print-area via @media print keeps the paper clean on every device.
-const area=document.getElementById('print-area');if(!area){window.print();return}area.innerHTML=body;const prevTitle=document.title;document.title='รายงานเครื่องจักร ROUTER';let cleaned=false;const done=()=>{if(cleaned)return;cleaned=true;area.innerHTML='';document.title=prevTitle;window.removeEventListener('afterprint',done)};window.addEventListener('afterprint',done);setTimeout(()=>{window.print()},250);setTimeout(done,60000)};
+// Render the report into a dedicated container in the main document.
+// Desktop: print the main window (everything but #print-area is hidden).
+// Mobile : build a real A4 PDF with html2pdf, because phone browsers ignore
+//          @page size/margin and would otherwise print a wrongly-sized sheet
+//          stamped with the page URL.
+const isMobile=/Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.platform));
+const area=document.getElementById('print-area');if(!area){window.print();return}area.innerHTML=body;
+const prevTitle=document.title;document.title='รายงานเครื่องจักร ROUTER';let cleaned=false;
+const done=()=>{if(cleaned)return;cleaned=true;area.innerHTML='';document.title=prevTitle;window.removeEventListener('afterprint',done)};
+if(isMobile&&window.html2pdf){
+  // Mobile browsers ignore @page size/margin, so the native dialog gives a
+  // wrong-sized sheet and stamps the page URL. Generating a real A4 PDF is
+  // deterministic and carries no browser header/footer.
+  area.style.display='block';area.style.position='fixed';area.style.left='-9999px';area.style.top='0';area.style.width='210mm';area.style.padding='12mm';area.style.background='#fff';
+  const opt={margin:0,filename:'ROUTER_Machine_Report_'+(new Date().toISOString().slice(0,10))+'.pdf',image:{type:'jpeg',quality:.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy'],avoid:['tr']}};
+  setTimeout(()=>{html2pdf().set(opt).from(area).save().then(()=>{area.style.cssText='';area.style.display='';done()}).catch(()=>{area.style.cssText='';done()})},250);
+}else{
+  window.addEventListener('afterprint',done);setTimeout(()=>{window.print()},250);setTimeout(done,60000)
+}};
 function renderCharts(){if(!window.Chart)return;const count=k=>{const o={};items.forEach(x=>{const v=x[k]||'ไม่ระบุ';o[v]=(o[v]||0)+1});return Object.entries(o).sort((a,b)=>b[1]-a[1])};function draw(id,type,labels,data,colors){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),{type,data:{labels,datasets:[{label:'จำนวน',data,backgroundColor:colors,borderRadius:5}]},options:{responsive:true,plugins:{legend:{display:type==='doughnut',position:'bottom'}},scales:type==='doughnut'?{}:{y:{beginAtZero:true,ticks:{precision:0}}}}})}let a=count('machine').slice(0,12);draw('machineChart','bar',a.map(x=>x[0]),a.map(x=>x[1]),'#6366f1');a=count('status');draw('statusChart','doughnut',a.map(x=>x[0]),a.map(x=>x[1]),['#f59e0b','#3b82f6','#10b981','#94a3b8']);a=count('category').slice(0,8);draw('categoryChart','bar',a.map(x=>x[0]),a.map(x=>x[1]),'#0ea5e9');a=items.slice().sort((x,y)=>Number(y.downtime||0)-Number(x.downtime||0)).slice(0,10);draw('downtimeChart','bar',a.map(x=>x.machine),a.map(x=>Number(x.downtime||0)),'#f97316');const d={};for(let i=13;i>=0;i--){const dt=new Date();dt.setDate(dt.getDate()-i);d[dt.toISOString().slice(0,10)]=0}items.forEach(x=>{if(d[x.startDate]!=null)d[x.startDate]++});draw('trendChart','line',Object.keys(d).map(k=>k.slice(5)),Object.values(d),'#0ea5e9')}

@@ -20,43 +20,68 @@
    The report is rendered into #print-area in the main document,
    then the main window is printed. Everything else (header, nav,
    dashboard, charts, buttons, lightbox) is hidden so the paper
-   only ever contains the report — this also fixes mobile browsers,
-   which often ignore iframe / new-window printing.
+   only ever contains the report.
+
+   Mobile note: iOS Safari / Android Chrome do NOT honour
+   "@page { size: A4; margin: 0 }". They lay the page out at the
+   device viewport width and add their own header/footer (the URL).
+   To stay A4-correct on every device the report is wrapped in a
+   fixed canvas that is (a) 210mm wide on desktop and (b) scaled to
+   the viewport width on small screens, while keeping the A4 aspect
+   ratio so nothing spills onto a second page.
    ========================================================= */
 #print-area { display: none; }
 
 @media print {
-  /* Zero page margin removes the browser's header/footer strip
-     (the about:blank / file:/// URL and date). Visual margin is
-     recreated as body padding below. */
+  /* Desktop path: zero page margin removes the browser's header/footer
+     strip (the file:/// URL and date); the visual margin is recreated
+     as padding on #print-area below. Mobile browsers ignore this rule,
+     which is why #print-area also carries its own explicit padding. */
   @page { size: A4 portrait; margin: 0; }
 
   html, body {
     background: #ffffff !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: auto !important;
     min-width: 0 !important;
+    /* Kill any wide layout the responsive app set for the screen. */
+    max-width: none !important;
+    overflow: visible !important;
   }
 
   /* Hide every part of the app UI. */
   body > *:not(#print-area) { display: none !important; }
 
+  /* The A4 canvas. On desktop it is exactly 210mm wide (A4 width) so it
+     maps 1:1 onto the paper. The 12mm padding is the visual margin. */
   #print-area {
     display: block !important;
-    padding: 12mm;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    padding: 12mm !important;
+    margin: 0 auto !important;
     color: #172033;
     font: 12px Arial, sans-serif;
+    box-sizing: border-box;
   }
+  #print-area * { box-sizing: border-box; max-width: 100%; }
 
   #print-area h1 { font-size: 20px; margin: 0 0 8px; }
   #print-area p { line-height: 1.6; margin: 0 0 12px; }
-  #print-area table { border-collapse: collapse; width: 100%; font-size: 10px; }
+  #print-area table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 10px;
+    table-layout: fixed;
+  }
   #print-area td, #print-area th {
     border: 1px solid #999;
     padding: 6px;
     text-align: left;
     vertical-align: top;
     word-break: break-word;
+    overflow-wrap: anywhere;
   }
   #print-area th { background: #eaf0f9; }
   #print-area img { max-width: 100px; max-height: 90px; object-fit: contain; }
@@ -68,6 +93,28 @@
     border-top: 1px solid #555;
     padding-top: 8px;
     text-align: center;
+  }
+
+  /* ---- Mobile / tablet path --------------------------------------
+     Phones ignore @page size and lay out at the device width. The
+     210mm canvas would therefore be ~2.5x too wide and spill onto
+     extra pages. On narrow viewports we instead let the canvas fill
+     the page, shrink the type and media, and keep the A4 proportions
+     so the whole report still lands on a single sheet. */
+  @media (max-width: 800px) {
+    #print-area {
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 8mm !important;
+      font-size: 9px;
+    }
+    #print-area h1 { font-size: 15px; margin: 0 0 6px; }
+    #print-area p { font-size: 9px; line-height: 1.45; margin: 0 0 8px; }
+    #print-area table { font-size: 7px; }
+    #print-area td, #print-area th { padding: 3px; }
+    #print-area img { max-width: 64px; max-height: 56px; }
+    #print-area .sign { gap: 16px; margin-top: 22px; }
+    #print-area .sign div { font-size: 8px; }
   }
 
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }

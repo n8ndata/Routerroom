@@ -2076,13 +2076,35 @@ function printSingleReport(id) {
         html2pdf().set(opt).from(element).save();
       });
     } else if (res.dismiss === Swal.DismissReason.cancel) {
+      // Phones ignore @page size/margin and stamp the page URL on the paper,
+      // so on mobile we emit a real A4 PDF instead of the print dialog.
+      const useMobilePdf = isMobileDevice() && window.html2pdf;
       // Wait for photos to load, then scale down if the sheet is taller than A4.
       waitForImages(element, () => {
-        fitSheetToOnePage(element);
-        window.print();
+        if (useMobilePdf) {
+          fitSheetToOnePage(element, 'canvas');
+          const opt = {
+            margin: 0,
+            filename: `ROUTER_Report_${report.machineName}_${report.reportDate || 'ticket'}.pdf`,
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['css', 'legacy'], avoid: ['.print-image-item', '.page-break-inside-avoid'] }
+          };
+          html2pdf().set(opt).from(element).save();
+        } else {
+          fitSheetToOnePage(element);
+          window.print();
+        }
       });
     }
   });
+}
+
+// True on phones/tablets, where the native print dialog cannot honour A4.
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
 }
 
 // Scale a print sheet down (uniformly) so it fits inside one A4 page.

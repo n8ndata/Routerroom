@@ -284,6 +284,13 @@ body {
     padding: 0 !important;
   }
 
+  /* Hide every other part of the app UI, so a mobile browser that prints the
+     main document (instead of a properly sized sheet) still only shows the
+     report. #printable-report-container is a direct child of <body>. */
+  body > *:not(#printable-report-container) {
+    display: none !important;
+  }
+
   /* One A4 sheet only: keep the 210mm width + 8mm padding from the base rule
      so the browser's own header/footer area stays empty. Width/max-width are
      deliberately NOT !important, so fitSheetToOnePage() can override them for
@@ -297,6 +304,25 @@ body {
     padding: 8mm;
     page-break-after: avoid !important;
     break-after: avoid !important;
+  }
+
+  /* Phones ignore @page size and lay out at the device width, so a fixed
+     210mm sheet overflows onto extra pages. On narrow screens let the sheet
+     fill the page instead and shrink the type/media to keep it one page. */
+  @media (max-width: 800px) {
+    .print-page {
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 6mm !important;
+      font-size: 8.5pt !important;
+      line-height: 1.2 !important;
+    }
+    .print-page .text-xl { font-size: 11pt !important; }
+    .print-page .text-lg { font-size: 10pt !important; }
+    .print-page table td,
+    .print-page table th { padding: 2px 3px !important; }
+    .print-page .print-image-grid { gap: 2mm !important; }
+    .print-page .print-image-item img { max-height: 26mm !important; }
   }
 
   /* Force color printing */
