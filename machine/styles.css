@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');*{box-sizing:border-box}body{font-family:Prompt,system-ui;background:#f1f5f9;min-width:320px}.navrow{display:flex;gap:8px;overflow-x:auto;padding:4px 0 16px}.tab{white-space:nowrap;display:inline-flex;align-items:center;gap:8px;padding:11px 15px;border-radius:12px;color:#64748b;font-size:13px;font-weight:600;background:#fff;border:1px solid #e2e8f0}.tab.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 5px 14px #2563eb30}.view{display:none}.view.active{display:block}.panel{background:white;border:1px solid #e2e8f0;border-radius:20px;padding:18px;box-shadow:0 4px 15px #0f172a08}.hero{background:linear-gradient(120deg,#1e3a8a,#4f46e5 65%,#7c3aed);color:#fff;border-radius:24px;padding:26px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 15px 35px #4338ca30}.stat{position:relative;background:white;border:1px solid #e2e8f0;border-radius:18px;padding:17px;overflow:hidden;box-shadow:0 4px 15px #0f172a08}.stat span{display:block;color:#64748b;font-size:12px}.stat strong{display:block;font-size:30px;font-weight:700;margin-top:5px}.stat i{position:absolute;right:13px;top:16px;font-size:24px;color:#c7d2fe}.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 13px;border-radius:11px;font-size:13px;font-weight:600;border:1px solid transparent;cursor:pointer;transition:.15s}.btn:hover{filter:brightness(.97);transform:translateY(-1px)}.btn.primary{background:#2563eb;color:white;box-shadow:0 4px 10px #2563eb25}.btn.soft{background:#f8fafc;color:#334155;border-color:#cbd5e1}.btn.white{background:white;color:#1d4ed8}.btn.danger{background:#fee2e2;color:#b91c1c;border-color:#fecaca}.field{width:100%;min-width:0;min-height:43px;padding:10px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;outline:none;font:inherit;font-size:14px}.field:focus{background:white;border-color:#2563eb;box-shadow:0 0 0 3px #2563eb18}.field[readonly]{color:#475569}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.formgrid label,.panel label{font-size:13px;font-weight:600;color:#334155}.formgrid label b,.panel label b{color:#dc2626}.formgrid .field{display:block;margin-top:6px}.formgrid small{display:block;font-weight:400;font-size:11px;margin-top:5px}.panel textarea.field{display:block;margin-top:6px;min-height:95px;resize:vertical}.filters{display:grid;grid-template-columns:minmax(200px,2fr) repeat(3,minmax(140px,1fr));gap:10px}.matrix{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:7px}.machine-tile{border:1px solid #cbd5e1;background:#f8fafc;border-radius:10px;padding:10px 3px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;min-width:0}.machine-tile:hover{border-color:#2563eb;background:#eff6ff}.machine-tile.has-open{background:#fff7ed;border-color:#fdba74;color:#9a3412}.machine-tile.has-critical{background:#fee2e2;border-color:#fca5a5;color:#991b1b}.machine-tile.all-done{background:#dcfce7;border-color:#86efac;color:#166534}.pill{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:600;white-space:nowrap}.pill.open{background:#fef3c7;color:#92400e}.pill.progress{background:#dbeafe;color:#1d4ed8}.pill.done{background:#dcfce7;color:#166534}.pill.closed{background:#e2e8f0;color:#475569}.record-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:15px;box-shadow:0 3px 10px #0f172a08}.preview{width:90px;height:90px;object-fit:cover;border-radius:10px;border:1px solid #cbd5e1}.bottomnav{display:none}.lightbox{position:fixed;inset:0;z-index:60;background:#020617ed;display:flex;align-items:center;justify-content:center;padding:25px}.lightbox img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:12px}.lightbox.hidden{display:none}#recordsTable tr:hover{background:#f8fafc}#recordsTable td{vertical-align:top;border-bottom:1px solid #e2e8f0}@media(max-width:1023px){.matrix{grid-template-columns:repeat(5,minmax(0,1fr))}.filters{grid-template-columns:1fr 1fr}.navrow{display:none}.bottomnav{position:fixed;z-index:40;bottom:0;left:0;right:0;display:flex;justify-content:space-around;background:#ffffffed;backdrop-filter:blur(12px);border-top:1px solid #e2e8f0;padding:5px 4px max(5px,env(safe-area-inset-bottom))}.bottomnav .tab{flex:1;flex-direction:column;gap:3px;padding:8px 2px;border:0;background:transparent;font-size:10px}.bottomnav .tab.active{background:transparent;color:#2563eb;box-shadow:none}.hero{align-items:flex-start;flex-direction:column}}@media(max-width:600px){.formgrid{grid-template-columns:1fr}.panel{padding:14px;border-radius:16px}.filters{grid-template-columns:1fr}.matrix{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.machine-tile{padding:9px 2px}.hero{padding:20px}.stat{padding:13px}.stat strong{font-size:26px}.btn{padding:9px 10px;font-size:12px}}@media print{header,.navrow,.bottomnav,.btn,.filters,#dashboard,#entry,#analytics{display:none!important}body{background:#fff}.panel{box-shadow:none;border:0;padding:0}.view{display:none!important}#records.view.active{display:block!important}#recordsTableWrap{display:block!important}#recordsCards{display:none!important}}
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');*{box-sizing:border-box}body{font-family:Prompt,system-ui;background:#f1f5f9;min-width:320px}.navrow{display:flex;gap:8px;overflow-x:auto;padding:4px 0 16px}.tab{white-space:nowrap;display:inline-flex;align-items:center;gap:8px;padding:11px 15px;border-radius:12px;color:#64748b;font-size:13px;font-weight:600;background:#fff;border:1px solid #e2e8f0}.tab.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 5px 14px #2563eb30}.view{display:none}.view.active{display:block}.panel{background:white;border:1px solid #e2e8f0;border-radius:20px;padding:18px;box-shadow:0 4px 15px #0f172a08}.hero{background:linear-gradient(120deg,#1e3a8a,#4f46e5 65%,#7c3aed);color:#fff;border-radius:24px;padding:26px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 15px 35px #4338ca30}.stat{position:relative;background:white;border:1px solid #e2e8f0;border-radius:18px;padding:17px;overflow:hidden;box-shadow:0 4px 15px #0f172a08}.stat span{display:block;color:#64748b;font-size:12px}.stat strong{display:block;font-size:30px;font-weight:700;margin-top:5px}.stat i{position:absolute;right:13px;top:16px;font-size:24px;color:#c7d2fe}.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 13px;border-radius:11px;font-size:13px;font-weight:600;border:1px solid transparent;cursor:pointer;transition:.15s}.btn:hover{filter:brightness(.97);transform:translateY(-1px)}.btn.primary{background:#2563eb;color:white;box-shadow:0 4px 10px #2563eb25}.btn.soft{background:#f8fafc;color:#334155;border-color:#cbd5e1}.btn.white{background:white;color:#1d4ed8}.btn.danger{background:#fee2e2;color:#b91c1c;border-color:#fecaca}.field{width:100%;min-width:0;min-height:43px;padding:10px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;outline:none;font:inherit;font-size:14px}.field:focus{background:white;border-color:#2563eb;box-shadow:0 0 0 3px #2563eb18}.field[readonly]{color:#475569}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.formgrid label,.panel label{font-size:13px;font-weight:600;color:#334155}.formgrid label b,.panel label b{color:#dc2626}.formgrid .field{display:block;margin-top:6px}.formgrid small{display:block;font-weight:400;font-size:11px;margin-top:5px}.panel textarea.field{display:block;margin-top:6px;min-height:95px;resize:vertical}.filters{display:grid;grid-template-columns:minmax(200px,2fr) repeat(3,minmax(140px,1fr));gap:10px}.matrix{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:7px}.machine-tile{border:1px solid #cbd5e1;background:#f8fafc;border-radius:10px;padding:10px 3px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;min-width:0}.machine-tile:hover{border-color:#2563eb;background:#eff6ff}.machine-tile.has-open{background:#fff7ed;border-color:#fdba74;color:#9a3412}.machine-tile.has-critical{background:#fee2e2;border-color:#fca5a5;color:#991b1b}.machine-tile.all-done{background:#dcfce7;border-color:#86efac;color:#166534}.pill{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:600;white-space:nowrap}.pill.open{background:#fef3c7;color:#92400e}.pill.progress{background:#dbeafe;color:#1d4ed8}.pill.done{background:#dcfce7;color:#166534}.pill.closed{background:#e2e8f0;color:#475569}.record-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:15px;box-shadow:0 3px 10px #0f172a08}.preview{width:90px;height:90px;object-fit:cover;border-radius:10px;border:1px solid #cbd5e1}.bottomnav{display:none}.lightbox{position:fixed;inset:0;z-index:60;background:#020617ed;display:flex;align-items:center;justify-content:center;padding:25px}.lightbox img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:12px}.lightbox.hidden{display:none}#recordsTable tr:hover{background:#f8fafc}#recordsTable td{vertical-align:top;border-bottom:1px solid #e2e8f0}@media(max-width:1023px){.matrix{grid-template-columns:repeat(5,minmax(0,1fr))}.filters{grid-template-columns:1fr 1fr}.navrow{display:none}.bottomnav{position:fixed;z-index:40;bottom:0;left:0;right:0;display:flex;justify-content:space-around;background:#ffffffed;backdrop-filter:blur(12px);border-top:1px solid #e2e8f0;padding:5px 4px max(5px,env(safe-area-inset-bottom))}.bottomnav .tab{flex:1;flex-direction:column;gap:3px;padding:8px 2px;border:0;background:transparent;font-size:10px}.bottomnav .tab.active{background:transparent;color:#2563eb;box-shadow:none}.hero{align-items:flex-start;flex-direction:column}}@media(max-width:600px){.formgrid{grid-template-columns:1fr}.panel{padding:14px;border-radius:16px}.filters{grid-template-columns:1fr}.matrix{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.machine-tile{padding:9px 2px}.hero{padding:20px}.stat{padding:13px}.stat strong{font-size:26px}.btn{padding:9px 10px;font-size:12px}}
 
 
 /* COLORFUL HOME BUTTON AND ICON FINISH */
@@ -15,139 +15,54 @@
 .tab:hover i { transform: translateY(-2px) scale(1.08); filter: drop-shadow(0 2px 3px currentColor); }
 .tab.active i { color: #fde68a; }
 
-/* =========================================================
-   PRINT STYLES
-   The report is rendered into #print-area in the main document,
-   then the main window is printed. Everything else (header, nav,
-   dashboard, charts, buttons, lightbox) is hidden so the paper
-   only ever contains the report.
-
-   Mobile note: iOS Safari / Android Chrome do NOT honour
-   "@page { size: A4; margin: 0 }". They lay the page out at the
-   device viewport width and add their own header/footer (the URL).
-   To stay A4-correct on every device the report is wrapped in a
-   fixed canvas that is (a) 210mm wide on desktop and (b) scaled to
-   the viewport width on small screens, while keeping the A4 aspect
-   ratio so nothing spills onto a second page.
-   ========================================================= */
-#print-area { display: none; }
-
-/* =========================================================
-   SCREEN-MODE PDF STYLES (#print-area.pdf-mode)
-   The mobile export path renders the report with html2pdf /
-   html2canvas, which captures under SCREEN media — the
-   @media print block below never applies during that capture.
-   Without these rules the report is screenshotted unstyled
-   (full-size photos, no borders), the canvas grows past the
-   phone's canvas limit and the saved PDF comes out blank.
-   ========================================================= */
-#print-area.pdf-mode {
-  display: block;
-  position: fixed;
-  left: -9999px;
-  top: 0;
-  width: 210mm;
-  padding: 12mm;
-  background: #fff;
-  color: #172033;
-  font: 12px Arial, sans-serif;
-  box-sizing: border-box;
-}
-#print-area.pdf-mode * { box-sizing: border-box; max-width: 100%; }
-#print-area.pdf-mode h1 { font-size: 20px; margin: 0 0 8px; }
-#print-area.pdf-mode p { line-height: 1.6; margin: 0 0 12px; }
-#print-area.pdf-mode table { border-collapse: collapse; width: 100%; font-size: 10px; table-layout: fixed; }
-#print-area.pdf-mode td, #print-area.pdf-mode th { border: 1px solid #999; padding: 6px; text-align: left; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
-#print-area.pdf-mode th { background: #eaf0f9; }
-#print-area.pdf-mode img { max-width: 100px; max-height: 90px; object-fit: contain; }
-#print-area.pdf-mode .photos { display: flex; flex-wrap: wrap; gap: 4px; }
-#print-area.pdf-mode .sign { display: flex; gap: 40px; margin-top: 45px; }
-#print-area.pdf-mode .sign div { width: 33%; border-top: 1px solid #555; padding-top: 8px; text-align: center; }
-
+/* ---- PRINT: list panel only (records tab) ---- */
+@page { margin: 12mm; }
 @media print {
-  /* Desktop path: zero page margin removes the browser's header/footer
-     strip (the file:/// URL and date); the visual margin is recreated
-     as padding on #print-area below. Mobile browsers ignore this rule,
-     which is why #print-area also carries its own explicit padding. */
-  @page { size: A4 portrait; margin: 0; }
-
-  html, body {
-    background: #ffffff !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: auto !important;
-    min-width: 0 !important;
-    /* Kill any wide layout the responsive app set for the screen. */
-    max-width: none !important;
-    overflow: visible !important;
-  }
-
-  /* Hide every part of the app UI. */
-  body > *:not(#print-area) { display: none !important; }
-
-  /* The A4 canvas. On desktop it is exactly 210mm wide (A4 width) so it
-     maps 1:1 onto the paper. The 12mm padding is the visual margin. */
-  #print-area {
-    display: block !important;
-    width: 210mm !important;
-    max-width: 210mm !important;
-    padding: 12mm !important;
-    margin: 0 auto !important;
-    color: #172033;
-    font: 12px Arial, sans-serif;
-    box-sizing: border-box;
-  }
-  #print-area * { box-sizing: border-box; max-width: 100%; }
-
-  #print-area h1 { font-size: 20px; margin: 0 0 8px; }
-  #print-area p { line-height: 1.6; margin: 0 0 12px; }
-  #print-area table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 10px;
-    table-layout: fixed;
-  }
-  #print-area td, #print-area th {
-    border: 1px solid #999;
-    padding: 6px;
-    text-align: left;
-    vertical-align: top;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-  }
-  #print-area th { background: #eaf0f9; }
-  #print-area img { max-width: 100px; max-height: 90px; object-fit: contain; }
-  #print-area tr { break-inside: avoid; page-break-inside: avoid; }
-  #print-area .photos { display: flex; flex-wrap: wrap; gap: 4px; }
-  #print-area .sign { display: flex; gap: 40px; margin-top: 45px; }
-  #print-area .sign div {
-    width: 33%;
-    border-top: 1px solid #555;
-    padding-top: 8px;
-    text-align: center;
-  }
-
-  /* ---- Mobile / tablet path --------------------------------------
-     Phones ignore @page size and lay out at the device width. The
-     210mm canvas would therefore be ~2.5x too wide and spill onto
-     extra pages. On narrow viewports we instead let the canvas fill
-     the page, shrink the type and media, and keep the A4 proportions
-     so the whole report still lands on a single sheet. */
-  @media (max-width: 800px) {
-    #print-area {
-      width: 100% !important;
-      max-width: 100% !important;
-      padding: 8mm !important;
-      font-size: 9px;
-    }
-    #print-area h1 { font-size: 15px; margin: 0 0 6px; }
-    #print-area p { font-size: 9px; line-height: 1.45; margin: 0 0 8px; }
-    #print-area table { font-size: 7px; }
-    #print-area td, #print-area th { padding: 3px; }
-    #print-area img { max-width: 64px; max-height: 56px; }
-    #print-area .sign { gap: 16px; margin-top: 22px; }
-    #print-area .sign div { font-size: 8px; }
-  }
-
+  header, .navrow, .bottomnav, #photoLightbox { display: none !important; }
+  body { background: #fff; }
+  main { padding: 0 !important; max-width: none !important; }
+  .panel { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+  .view { display: none !important; }
+  #records.view.active { display: block !important; }
+  #records .btn, #records select { display: none !important; }
+  #recordsCards { display: grid !important; grid-template-columns: 1fr !important; gap: 10px !important; }
+  .record-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #cbd5e1 !important; box-shadow: none !important; border-radius: 12px !important; }
+  .record-card img.preview { max-width: 90px; max-height: 80px; object-fit: contain; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
+
+/* ---- PDF EXPORT (html2pdf/html2canvas renders under SCREEN media, so these
+       styles must NOT live inside @media print) ---- */
+#pdf-area { display: none; }
+/* While generating the PDF the page chrome is hidden and the report is laid out
+   in normal flow — html2canvas must render a fully visible on-screen element. */
+body.pdf-busy { background: #fff !important; }
+body.pdf-busy > header, body.pdf-busy > main, body.pdf-busy > nav.bottomnav { display: none !important; }
+#pdf-area.pdf-mode {
+  display: block; position: static;
+  width: 210mm; max-width: 100%; padding: 12mm; box-sizing: border-box;
+  background: #fff; color: #172033; font: 12px/1.5 Arial, "Prompt", sans-serif;
+}
+.pdf-report h1 { font-size: 19px; margin: 0 0 4px; color: #0f172a; }
+.pdf-report .sub { font-size: 10px; color: #475569; margin: 0 0 10px; }
+.pdf-report h2 {
+  font-size: 13px; margin: 14px 0 6px; padding: 5px 8px;
+  background: #eaf0f9; border: 1px solid #b6c6de; color: #1e3a5f;
+  break-after: avoid; page-break-after: avoid;
+}
+.pdf-report h2 small { font-weight: 400; font-size: 10px; color: #475569; }
+.pdf-report .mc { break-inside: avoid; page-break-inside: avoid; }
+.pdf-report .mc.mc-split { break-inside: auto; page-break-inside: auto; }
+.pdf-report .rep {
+  border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; margin: 0 0 8px;
+  break-inside: avoid; page-break-inside: avoid;
+}
+.pdf-report .rep-top { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 700; margin-bottom: 6px; color: #0f172a; }
+.pdf-report .rep-top .st { color: #2563eb; }
+.pdf-report table.kv { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+.pdf-report table.kv td { border: 1px solid #cbd5e1; padding: 4px 6px; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
+.pdf-report table.kv td.k { width: 17%; background: #f8fafc; font-weight: 600; color: #334155; }
+.pdf-report .pics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pdf-report .pics div { width: 64px; }
+.pdf-report .pics img { width: 64px; height: 56px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; display: block; }
+.pdf-report .pics small { display: block; font-size: 7px; color: #64748b; text-align: center; word-break: break-word; }
