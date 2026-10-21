@@ -20,9 +20,9 @@ const list=reportsByMachine();
 const w=window.open('','_blank');
 if(!w){Swal.fire('เปิดหน้าพิมพ์ไม่ได้','เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาตป๊อปอัปสำหรับหน้านี้แล้วลองใหม่','warning');return}
 const links=[...document.querySelectorAll('link[rel="stylesheet"]')].map(n=>'<link rel="stylesheet" href="'+n.href+'">').join('');
-const css='<style>@page{margin:12mm}html,body{margin:0;background:#fff;color:#172033;font:12px/1.5 Arial,"Prompt",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf-report{width:210mm;max-width:100%;margin:0 auto}@media print{.pdf-report{width:auto;margin:0}}</style>';
+const css='<style>@page{margin:12mm}html,body{margin:0;background:#fff;color:#172033;font:12px/1.5 Arial,"Prompt",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf-report{width:210mm;max-width:100%;margin:0 auto}@media print{.pdf-report{width:auto;margin:0}}html,body{touch-action:pan-x pan-y;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}html,body,*,*::before,*::after{touch-action:pan-x pan-y}</style>';
 w.document.open();
-w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานปัญหาเครื่องจักร ROUTER</title>'+css+links+'</head><body>'+pdfReportHtml(list)+'</body></html>');
+w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>รายงานปัญหาเครื่องจักร ROUTER</title>'+css+links+'</head><body>'+pdfReportHtml(list)+'</body></html>');
 w.document.close();
 const fire=()=>{if(w.__printed)return;w.__printed=1;try{w.focus();w.print()}catch(e){}};
 const done=()=>setTimeout(fire,800);

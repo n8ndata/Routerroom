@@ -435,6 +435,20 @@ html {
   scroll-padding-top: 7rem;
 }
 
+/* =========================================================
+   NO-ZOOM LOCK — ห้ามขยายซูมทั้งระบบ
+   touch-action: pan-x pan-y กันพินช์-ซูม + ดับเบิลทัป-ซูม
+   แต่ยังเลื่อนหน้าได้ทั้งแนวตั้งและแนวนอนตามปกติ
+   ========================================================= */
+html, body {
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+html, body, *, *::before, *::after {
+  touch-action: pan-x pan-y;
+}
+
 body {
   min-width: 320px;
   line-height: 1.5;
@@ -770,7 +784,7 @@ header .home-return-btn i {
   border:1px solid var(--ib-bd,#dbe3ed);border-radius:13px;
   background:var(--ib-bg,#f8fafc);color:var(--ib-fg,#475569);
   font-size:16px;line-height:1;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;touch-action:pan-x pan-y;
   box-shadow:0 1px 2px rgba(15,23,42,.06);
   transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease;
 }

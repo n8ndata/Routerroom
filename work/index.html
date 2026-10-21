@@ -2,7 +2,64 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- =========================================================
+       NO-ZOOM GUARD — ล็อกการขยายซูมทุกรูปแบบ
+       (พินช์บนมือถือ / ดับเบิลทัป / Ctrl+ล้อเมาส์ / Ctrl+เคีย์บอร์ด)
+       การเลื่อนหน้าและการกดปุ่มยังทำงานได้ตามปกติ
+       ========================================================= -->
+  <script>
+    (function () {
+      'use strict';
+
+      var VIEWPORT = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+      var ZOOM_KEYS = ['+', '=', '-', '_', '0', 'Add', 'Subtract', 'Equal'];
+      var lastTouchEnd = 0;
+
+      // iOS Safari: กันการซูมด้วยท่ากระทั่ง (pinch-zoom)
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (type) {
+        document.addEventListener(type, function (e) { e.preventDefault(); }, { passive: false });
+      });
+
+      // กันการซูมด้วย Ctrl/⌘ + เลื่อนล้อเมาส์ (เดสก์ท็อป)
+      document.addEventListener('wheel', function (e) {
+        if (e.ctrlKey || e.metaKey) e.preventDefault();
+      }, { passive: false });
+
+      // กันการซูมด้วยคีย์บอร์ด (Ctrl/⌘ + + / - / 0)
+      document.addEventListener('keydown', function (e) {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        if (ZOOM_KEYS.indexOf(e.key) !== -1) e.preventDefault();
+      }, { passive: false });
+
+      // กันการซูมด้วยการแตะสองครั้ง (เบราว์เซอร์รุ่นเก่า) — ไม่กระทบการกดปุ่มซ้ำ
+      document.addEventListener('touchend', function (e) {
+        var now = Date.now();
+        if (now - lastTouchEnd <= 320) {
+          var t = e.changedTouches && e.changedTouches[0];
+          var el = t && t.target;
+          var interactive = el && el.closest && el.closest('a,button,input,select,textarea,label,[role="button"]');
+          if (!interactive) e.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, { passive: false });
+
+      // บังคับระดับการขยาย = 1 เสมอ (กันเบราว์เซอร์ที่พยายามคืนค่าซูมเอง)
+      function lockScale() {
+        var vp = document.querySelector('meta[name="viewport"]');
+        if (!vp) {
+          vp = document.createElement('meta');
+          vp.setAttribute('name', 'viewport');
+          document.head.appendChild(vp);
+        }
+        if (vp.getAttribute('content') !== VIEWPORT) vp.setAttribute('content', VIEWPORT);
+      }
+      lockScale();
+      window.addEventListener('resize', lockScale);
+      window.addEventListener('orientationchange', lockScale);
+    })();
+  </script>
   <title>ระบบรายงานปัญหาแผนก ROUTER & ติดตามงานหลุด</title>
   
   <!-- Tailwind CSS CDN -->
@@ -30,7 +87,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="styles.css?v=3.13">
+  <link rel="stylesheet" href="styles.css?v=3.14">
 
   <script>
     tailwind.config = {
@@ -900,7 +957,7 @@
   </div>
 
   <!-- Main Application Logic -->
-  <script src="app.js?v=3.11"></script>
+  <script src="app.js?v=3.12"></script>
 
 </body>
 </html>
