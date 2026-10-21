@@ -1167,9 +1167,50 @@ function renderDashboardCharts(reports) {
     console.warn('Chart.js ไม่พร้อมใช้งาน — ข้ามการวาดกราฟ');
     return;
   }
+  // Draw the value above every bar (vertical bars only).
+  const valueLabelPlugin = {
+    id: 'valueLabelTop',
+    afterDatasetsDraw(chart) {
+      const meta = chart.getDatasetMeta(0);
+      if (!meta || meta.hidden) return;
+      const area = chart.chartArea || { bottom: chart.height };
+      const ctx2 = chart.ctx;
+      if (!ctx2) return;
+      ctx2.save();
+      ctx2.font = '600 11px Prompt, system-ui, sans-serif';
+      ctx2.fillStyle = '#1e293b';
+      ctx2.textAlign = 'center';
+      ctx2.textBaseline = 'bottom';
+      meta.data.forEach((bar, i) => {
+        const value = chart.data.datasets[0].data[i];
+        if (value === undefined || value === null || !bar) return;
+        const isZero = Number(value) === 0;
+        const y = Number.isFinite(bar.y) ? bar.y : area.bottom;
+        ctx2.fillStyle = isZero ? '#94a3b8' : '#1e293b';
+        ctx2.fillText(String(value), bar.x, isZero ? Math.min(y - 3, area.bottom - 3) : y - 4);
+      });
+      ctx2.restore();
+    }
+  };
   // Chart 1: Ratio Internal vs Escaped
   const internalCount = reports.filter(r => r.reportType === 'internal').length;
   const escapedCount = reports.filter(r => r.reportType === 'escaped').length;
+
+  // Charts are re-created only after their container is visible again (a hidden
+  // canvas measures 0px wide, so the size is forced from the visible wrapper).
+  ['chart-ratio-wrap', 'chart-machine-wrap', 'chart-category-wrap', 'chart-trend-wrap'].forEach(wrapId => {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    const cv = wrap.querySelector('canvas');
+    if (!cv) return;
+    const w = wrap.clientWidth || wrap.parentElement?.clientWidth || 0;
+    if (w > 0) {
+      cv.style.width = '100%';
+      cv.style.height = '100%';
+      cv.style.maxWidth = '100%';
+      cv.style.display = 'block';
+    }
+  });
 
   const ctxRatio = document.getElementById('chart-ratio').getContext('2d');
   if (chartRatioInstance) chartRatioInstance.destroy();
@@ -1215,27 +1256,62 @@ function renderDashboardCharts(reports) {
 
   chartMachineInstance = new Chart(ctxMachine, {
     type: 'bar',
+    plugins: [valueLabelPlugin],
     data: {
       labels: machineLabels,
       datasets: [{
         label: 'จำนวนปัญหา (เคส)',
         data: machineData,
         backgroundColor: machineColors,
-        borderRadius: 6
+        borderRadius: 6,
+        maxBarThickness: 54
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { top: 18 } },
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.parsed.y} เคส`
+          }
+        }
       },
       scales: {
-        y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Prompt' } } },
-        x: { ticks: { font: { size: 10, family: 'Prompt' } } }
+        y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { family: 'Prompt' } } },
+        x: {
+          ticks: { font: { size: 10, family: 'Prompt' }, color: '#334155', maxRotation: 0, autoSkip: false },
+          grid: { display: false }
+        }
       }
     }
   });
+
+  // Detail rows under the bars: full machine name, group and count.
+  const machineRank = document.getElementById('chart-machine-rank');
+  if (machineRank) {
+    if (sortedMachines.length === 0) {
+      machineRank.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">ไม่มีข้อมูลในช่วงนี้</p>`;
+    } else {
+      machineRank.innerHTML = sortedMachines.map((m, i) => {
+        const n = machineCounts[m];
+        const isVia = m.startsWith('ROUTER_VIA');
+        const isTong = m.startsWith('TONGTAI');
+        const group = isTong ? 'TONGTAI' : (isVia ? 'ROUTER_VIA' : 'อื่นๆ');
+        const cls = isTong ? 'text-blue-700 bg-blue-50 border-blue-100' : (isVia ? 'text-purple-700 bg-purple-50 border-purple-100' : 'text-slate-600 bg-slate-50 border-slate-200');
+        return `<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-1.5">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-bold text-indigo-600 w-3.5 shrink-0">${i + 1}</span>
+            <span class="text-xs font-semibold text-slate-700 truncate">${escapeHtml(m)}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full border ${cls} shrink-0">${group}</span>
+          </div>
+          <span class="text-xs font-bold text-slate-800 whitespace-nowrap shrink-0">${n} เคส</span>
+        </div>`;
+      }).join('');
+    }
+  }
 
   // Chart 3: Top Defect Categories
   const catCounts = {};
@@ -1250,39 +1326,83 @@ function renderDashboardCharts(reports) {
 
   const catLabels = sortedCats.length > 0 ? sortedCats : ['ไม่มีข้อมูล'];
   const catData = sortedCats.length > 0 ? sortedCats.map(c => catCounts[c]) : [0];
+  // Show the real category name on the axis; only shorten genuinely long names.
+  const shorten = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s);
 
   const ctxCat = document.getElementById('chart-category').getContext('2d');
   if (chartCategoryInstance) chartCategoryInstance.destroy();
 
   chartCategoryInstance = new Chart(ctxCat, {
     type: 'bar',
+    plugins: [valueLabelPlugin],
     data: {
-      labels: catLabels.map(l => l.length > 25 ? l.substring(0, 25) + '...' : l),
+      labels: catLabels.map(l => shorten(l, 14)),
       datasets: [{
         label: 'จำนวนครั้งที่พบ',
         data: catData,
         backgroundColor: '#f43f5e',
-        borderRadius: 4
+        borderRadius: 4,
+        maxBarThickness: 54
       }]
     },
     options: {
-      indexAxis: 'y',
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { top: 18 } },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            title: (items) => sortedCats[items[0].dataIndex]
+            title: (items) => sortedCats[items[0].dataIndex] || catLabels[items[0].dataIndex],
+            label: (ctx) => ` ${ctx.parsed.y} ครั้ง`
           }
         }
       },
       scales: {
-        x: { beginAtZero: true, ticks: { stepSize: 1 } },
-        y: { ticks: { font: { size: 10, family: 'Prompt' } } }
+        y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { family: 'Prompt' } } },
+        x: {
+          ticks: {
+            font: { size: 10, family: 'Prompt' },
+            color: '#334155',
+            autoSkip: false,
+            maxRotation: 45,
+            minRotation: 0,
+            callback(value) {
+              // Wrap long names onto up to two short lines.
+              const label = this.getLabelForValue(value);
+              if (!label || label.length <= 11) return label;
+              const words = String(label).split(/\s+/);
+              if (words.length > 1) return words;
+              const mid = Math.ceil(label.length / 2);
+              return [label.slice(0, mid), label.slice(mid)];
+            }
+          },
+          grid: { display: false }
+        }
       }
     }
   });
+
+  // Detail list shown under the bars (full category names + counts).
+  const catRank = document.getElementById('chart-category-rank');
+  if (catRank) {
+    if (sortedCats.length === 0) {
+      catRank.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">ไม่มีข้อมูลในช่วงนี้</p>`;
+    } else {
+      const totalCat = catData.reduce((s, v) => s + v, 0) || 1;
+      catRank.innerHTML = sortedCats.map((c, i) => {
+        const n = catCounts[c];
+        const share = Math.round((n / totalCat) * 100);
+        return `<div class="flex items-start justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-1.5">
+          <div class="flex items-start gap-2 min-w-0">
+            <span class="text-[10px] font-bold text-rose-600 w-3.5 pt-0.5 shrink-0">${i + 1}</span>
+            <span class="text-xs text-slate-700 leading-snug">${escapeHtml(c)}</span>
+          </div>
+          <span class="text-xs font-bold text-rose-700 whitespace-nowrap shrink-0">${n} ครั้ง · ${share}%</span>
+        </div>`;
+      }).join('');
+    }
+  }
 
   // Chart 4: Incident Trend Over Time (Last 10 days)
   const dateCounts = {};
@@ -1301,6 +1421,7 @@ function renderDashboardCharts(reports) {
 
   chartTrendInstance = new Chart(ctxTrend, {
     type: 'line',
+    plugins: [valueLabelPlugin],
     data: {
       labels: trendLabels,
       datasets: [{
@@ -1487,17 +1608,17 @@ function renderRecordsTable(reports) {
       </td>
       <td class="px-4 py-3 text-right whitespace-nowrap">
         <div class="flex items-center justify-end space-x-1.5">
-          <button onclick="viewReportDetail('${r.id}')" class="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-lg transition" title="ดูรายละเอียดฉบับเต็ม">
-            <i class="fa-solid fa-eye text-xs"></i>
+          <button onclick="viewReportDetail('${r.id}')" class="icon-btn sm view" title="ดูรายละเอียดฉบับเต็ม">
+            <i class="fa-solid fa-eye"></i>
           </button>
-          <button onclick="printSingleReport('${r.id}')" class="p-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-lg transition" title="พิมพ์ใบรายงาน 8D (PDF)">
-            <i class="fa-solid fa-print text-xs"></i>
+          <button onclick="printSingleReport('${r.id}')" class="icon-btn sm print" title="พิมพ์ใบรายงาน 8D (PDF)">
+            <i class="fa-solid fa-print"></i>
           </button>
-          <button onclick="editReport('${r.id}')" class="p-1.5 bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-600 rounded-lg transition" title="แก้ไขข้อมูล">
+          <button onclick="editReport('${r.id}')" class="icon-btn sm edit" title="แก้ไขข้อมูล">
             <i class="fa-solid fa-pen-to-square text-xs"></i>
           </button>
-          <button onclick="deleteReport('${r.id}')" class="p-1.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition" title="ลบรายงาน">
-            <i class="fa-solid fa-trash text-xs"></i>
+          <button onclick="deleteReport('${r.id}')" class="icon-btn sm del" title="ลบรายงาน">
+            <i class="fa-solid fa-trash"></i>
           </button>
         </div>
       </td>
@@ -1557,9 +1678,9 @@ function renderRecordsCards(reports) {
         <div>${getStatusBadge(r.status)}</div>
         <div class="flex items-center space-x-1">
           <button onclick="viewReportDetail('${r.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 text-xs font-medium">ดูรายละเอียด</button>
-          <button onclick="printSingleReport('${r.id}')" class="p-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 text-xs" title="พิมพ์"><i class="fa-solid fa-print"></i></button>
-          <button onclick="editReport('${r.id}')" class="p-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 text-xs" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
-          <button onclick="deleteReport('${r.id}')" class="p-1 bg-slate-100 hover:bg-red-50 text-red-600 rounded text-xs" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+          <button onclick="printSingleReport('${r.id}')" class="icon-btn xs print" title="พิมพ์"><i class="fa-solid fa-print"></i></button>
+          <button onclick="editReport('${r.id}')" class="icon-btn xs edit" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+          <button onclick="deleteReport('${r.id}')" class="icon-btn xs del" title="ลบ"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>
     `;
@@ -1685,6 +1806,9 @@ function selectCalendarDate(dateStr, reports) {
   document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected'));
 
   setText('calendar-selected-date-label', dateStr);
+
+  const listContainer = document.getElementById('calendar-date-reports-list');
+  if (!listContainer) return;
 
   if (reports.length === 0) {
     if (listContainer) listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">ไม่มีรายงานปัญหาในวันที่ ${dateStr}</p>`;
@@ -1896,14 +2020,25 @@ function printSingleTicketPDF() {
   }
 }
 
+// Lazily create the off-screen container that the A4 print/PDF report renders into.
+function ensurePrintContainer() {
+  let el = document.getElementById('printable-report-container');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'printable-report-container';
+    el.className = 'hidden';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
 function printSingleReport(id) {
   const report = allReports.find(r => r.id === id);
   if (!report) return;
 
-  const container = document.getElementById('printable-report-container');
-  const photos = report.photos || [];
-
   const isInternal = report.reportType === 'internal';
+  const photos = report.photos || [];
+  const container = ensurePrintContainer();
 
   container.innerHTML = `
     <div class="print-page print-one-page font-sans text-slate-800">
@@ -2221,17 +2356,10 @@ function switchTab(tab) {
     }
   });
 
-  // Desktop Nav Highlight
-  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-  const activeDesktopBtn = document.getElementById(`nav-${tab}`);
-  if (activeDesktopBtn) activeDesktopBtn.classList.add('active');
+  // Vertical mode switcher highlight (same as โหมด 2)
+  document.querySelectorAll('.mode-nav .tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
 
-  // Mobile Nav Highlight
-  document.querySelectorAll('.mobile-nav-btn').forEach(btn => btn.classList.remove('active'));
-  const activeMobileBtn = document.getElementById(`m-nav-${tab}`);
-  if (activeMobileBtn) activeMobileBtn.classList.add('active');
-
-  // Specific tab triggers
+  // Tab-specific data refresh
   if (tab === 'dashboard') {
     applyDashboardFilter();
   } else if (tab === 'records') {
@@ -2243,8 +2371,17 @@ function switchTab(tab) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Attach the vertical mode switcher (buttons use data-tab, like โหมด 2)
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.mode-nav .tab[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+  const current = document.querySelector('.mode-nav .tab.active');
+  if (current && current.dataset.tab) switchTab(current.dataset.tab);
+});
+
 function updateBadgeCounts() {
-  setText('badge-total-count', allReports.length);
+  setText('badge-count', allReports.length);
 }
 
 // Utility: Escape HTML

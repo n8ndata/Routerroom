@@ -66,3 +66,39 @@ body.pdf-busy > header, body.pdf-busy > main, body.pdf-busy > nav.bottomnav { di
 .pdf-report .pics div { width: 64px; }
 .pdf-report .pics img { width: 64px; height: 56px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; display: block; }
 .pdf-report .pics small { display: block; font-size: 7px; color: #64748b; text-align: center; word-break: break-word; }
+
+/* ===== Unified icon buttons (shared look across both modes) ===== */
+.icon-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:42px;height:42px;min-width:42px;padding:0;
+  border:1px solid var(--ib-bd,#dbe3ed);border-radius:13px;
+  background:var(--ib-bg,#f8fafc);color:var(--ib-fg,#475569);
+  font-size:16px;line-height:1;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  box-shadow:0 1px 2px rgba(15,23,42,.06);
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease;
+}
+.icon-btn:hover{transform:translateY(-1px);box-shadow:0 7px 16px rgba(15,23,42,.14)}
+.icon-btn:active{transform:translateY(0) scale(.95);box-shadow:0 1px 2px rgba(15,23,42,.1)}
+.icon-btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.icon-btn i{pointer-events:none;transition:none!important;filter:none!important}
+.icon-btn:hover i,.icon-btn:active i{transform:none!important;filter:none!important}
+.icon-btn.excel{--ib-fg:#047857;--ib-bg:#ecfdf5;--ib-bd:#a7f3d0}
+.icon-btn.excel:hover{background:#d1fae5}
+.icon-btn.pdf{--ib-fg:#b91c1c;--ib-bg:#fef2f2;--ib-bd:#fecaca}
+.icon-btn.pdf:hover{background:#fee2e2}
+.icon-btn.print{--ib-fg:#1d4ed8;--ib-bg:#eff6ff;--ib-bd:#bfdbfe}
+.icon-btn.print:hover{background:#dbeafe}
+.icon-btn.view{--ib-fg:#4338ca;--ib-bg:#eef2ff;--ib-bd:#c7d2fe}
+.icon-btn.view:hover{background:#e0e7ff}
+.icon-btn.edit{--ib-fg:#b45309;--ib-bg:#fffbeb;--ib-bd:#fde68a}
+.icon-btn.edit:hover{background:#fef3c7}
+.icon-btn.del{--ib-fg:#b91c1c;--ib-bg:#fef2f2;--ib-bd:#fecaca}
+.icon-btn.del:hover{background:#fee2e2}
+.icon-btn.sm{width:36px;height:36px;min-width:36px;border-radius:11px;font-size:14px}
+.icon-btn.xs{width:32px;height:32px;min-width:32px;border-radius:10px;font-size:13px}
+.icon-btn.wide{width:auto;min-width:0;padding:0 14px;gap:8px;font-size:13px;font-weight:600}
+.icon-btn.wide span{white-space:nowrap}
+.icon-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+@media (max-width:400px){.icon-btn{width:40px;height:40px;min-width:40px;border-radius:12px}}
+@media (prefers-reduced-motion:reduce){.icon-btn{transition:none}.icon-btn:hover{transform:none}}

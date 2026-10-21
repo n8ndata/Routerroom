@@ -13,38 +13,40 @@ function statusClass(s){return s==='แก้ไขแล้ว'?'done':s==='ก
 function cardHtml(x){return `<article class="record-card"><div class="flex flex-wrap items-center justify-between gap-2"><b class="text-blue-900">${esc(x.machine)}</b><span class="pill ${statusClass(x.status)}">${esc(x.status)}</span></div><h3 class="font-bold mt-3">${esc(x.category||'ไม่ระบุหมวดหมู่')}</h3><p class="text-sm mt-1 whitespace-pre-wrap">${esc(x.description)}</p><div class="text-xs text-slate-500 mt-3">เริ่ม ${esc(x.startDate||'-')} ${esc(x.startTime||'')} · หยุด ${Number(x.downtime||0)} นาที</div><div class="text-xs text-slate-500 mt-1">ผู้รายงาน ${esc(x.reporter||'-')} · ช่างผู้รับผิดชอบ/รับแจ้ง ${esc(x.supervisor||'-')}</div><div class="flex flex-wrap gap-2 mt-3">${(x.photos||[]).slice(0,4).map((p,i)=>`<img class="preview cursor-pointer" src="${p.dataUrl}" alt="${esc(p.caption)}" onclick="openPhoto('${x.id}',${i})">`).join('')}</div><div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100"><button class="btn soft" onclick="detail('${x.id}')"><i class="fa-regular fa-eye"></i> รายละเอียด</button><button class="btn soft" onclick="editItem('${x.id}')"><i class="fa-solid fa-pen"></i> แก้ไข</button><select class="field" style="width:auto;min-height:36px;padding:5px" aria-label="เปลี่ยนสถานะ" onchange="quickStatus('${x.id}',this.value)">${['รอดำเนินการ','กำลังแก้ไข','แก้ไขแล้ว','ปิดเคส'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select><button class="btn danger" onclick="deleteItem('${x.id}')"><i class="fa-solid fa-trash"></i> ลบ</button></div></article>`}
 function renderRecords(){let list=items.slice().sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));$('recordsEmpty').classList.toggle('hidden',list.length>0);$('recordsCards').innerHTML=list.map(cardHtml).join('')}
 // Print the list: @media print hides the app chrome and shows #records only.
-// Print into a clean blank window so the browser header/footer shows no file path.
+// Print the same report as the PDF: grouped per machine, full details + photos.
 window.printRecords=()=>{
 if(!items.length){Swal.fire('ไม่มีข้อมูล','ยังไม่มีรายงานสำหรับพิมพ์','info');return}
-const src=document.getElementById('records');
-if(!src){window.print();return}
+const list=reportsByMachine();
 const w=window.open('','_blank');
 if(!w){Swal.fire('เปิดหน้าพิมพ์ไม่ได้','เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาตป๊อปอัปสำหรับหน้านี้แล้วลองใหม่','warning');return}
-const head=[...document.querySelectorAll('link[rel="stylesheet"]')].map(n=>'<link rel="stylesheet" href="'+n.href+'">').join('');
-const tw=document.querySelector('script[src*="tailwindcss"]');
-const tail=tw?'<script src="'+tw.src+'"></script>':'';
-const body=src.outerHTML.replace('class="view','class="view active');
+const links=[...document.querySelectorAll('link[rel="stylesheet"]')].map(n=>'<link rel="stylesheet" href="'+n.href+'">').join('');
+const css='<style>@page{margin:12mm}html,body{margin:0;background:#fff;color:#172033;font:12px/1.5 Arial,"Prompt",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf-report{width:210mm;max-width:100%;margin:0 auto}@media print{.pdf-report{width:auto;margin:0}}</style>';
 w.document.open();
-w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานปัญหาเครื่องจักร ROUTER</title>'+tail+head+'</head><body class="text-slate-800"><main>'+body+'</main></body></html>');
+w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานปัญหาเครื่องจักร ROUTER</title>'+css+links+'</head><body>'+pdfReportHtml(list)+'</body></html>');
 w.document.close();
 const fire=()=>{if(w.__printed)return;w.__printed=1;try{w.focus();w.print()}catch(e){}};
-const done=()=>setTimeout(fire,900);
+const done=()=>setTimeout(fire,800);
 w.onafterprint=()=>{try{w.close()}catch(e){}};
 if(w.document.readyState==='complete'){done()}else{w.addEventListener('load',done,{once:true})}
-setTimeout(()=>{if(!w.closed&&!w.__printed){w.__printed=1;fire()}},2500)
+try{w.document.fonts.ready.then(()=>setTimeout(fire,200))}catch(e){}
+setTimeout(()=>{if(!w.closed)fire()},3000)
 };
 // ===== EXPORT: full details of every report, grouped per machine =====
 function reportsByMachine(){return items.slice().sort((a,b)=>{const m=String(a.machine||'').localeCompare(String(b.machine||''),undefined,{numeric:true});return m||((b.startDate||'').localeCompare(a.startDate||''))})}
+// Shared report builder: used by both the PDF download and the print window.
+function pdfReportHtml(list){
+const groups=[],map={};list.forEach(x=>{const k=x.machine||'ไม่ระบุเครื่อง';if(!map[k]){map[k]=[];groups.push(k)}map[k].push(x)});
+const photoCount=list.reduce((n,x)=>n+(x.photos||[]).length,0);
+const block=x=>`<div class="rep"><div class="rep-top"><span>${esc(x.category||'ไม่ระบุหมวดหมู่')}</span><span class="st">${esc(x.status||'-')}</span></div><table class="kv"><tbody><tr><td class="k">วัน/เวลาเริ่ม</td><td>${esc(x.startDate||'-')} ${esc(x.startTime||'')}</td><td class="k">วัน/เวลาจบ</td><td>${esc(x.endDate||'ยังไม่จบ')} ${esc(x.endTime||'')}</td></tr><tr><td class="k">เวลาหยุด</td><td>${Number(x.downtime||0)} นาที (${Math.floor(Number(x.downtime||0)/60)} ชม. ${Number(x.downtime||0)%60})</td><td class="k">ระดับความรุนแรง</td><td>${esc(x.severity||'-')}</td></tr><tr><td class="k">ผู้รายงาน</td><td>${esc(x.reporter||'-')}</td><td class="k">ช่างผู้รับผิดชอบ/รับแจ้ง</td><td>${esc(x.supervisor||'-')}</td></tr><tr><td class="k">สาเหตุ (Root Cause)</td><td colspan="3">${esc(x.cause||'-')}</td></tr><tr><td class="k">การแก้ไข/ป้องกัน</td><td colspan="3">${esc(x.action||'-')}</td></tr><tr><td class="k">อาการปัญหา</td><td colspan="3" style="white-space:pre-wrap">${esc(x.description||'-')}</td></tr></tbody></table>${(x.photos||[]).length?`<div class="pics">${x.photos.map(p=>`<div><img src="${p.dataUrl}" alt=""><small>${esc(p.caption||p.name||'')}</small></div>`).join('')}</div>`:''}</div>`;
+return `<div class="pdf-report"><h1>รายงานปัญหาเครื่องจักร ROUTER</h1><p class="sub">รายละเอียดทั้งหมดรายเครื่อง · ${groups.length} เครื่อง · ${list.length} รายงาน · ${photoCount} ภาพหลักฐาน · สร้างเมื่อ ${new Date().toLocaleString('th-TH')}</p>${groups.map(m=>`<section class="mc"><h2>${esc(m)} <small>(${esc(groupOf(m))}) · ${map[m].length} รายงาน</small></h2>${map[m].map(block).join('')}</section>`).join('')}</div>`;
+}
 window.exportRecordsXlsx=()=>{const list=reportsByMachine();if(!list.length){Swal.fire('ไม่มีข้อมูล','ยังไม่มีรายงานในระบบ','info');return}if(typeof XLSX==='undefined'){Swal.fire('ไม่สามารถส่งออก Excel','ไม่พบไลบรารี XLSX กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้า','error');return}const rows=list.map((x,i)=>({'ลำดับ':i+1,'เครื่องจักร':x.machine||'','กลุ่มเครื่อง':groupOf(x.machine),'ระดับความรุนแรง':x.severity||'','วันที่เริ่ม':x.startDate||'','เวลาเริ่ม':x.startTime||'','วันที่จบ':x.endDate||'','เวลาจบ':x.endTime||'','เวลาหยุด(นาที)':Number(x.downtime||0),'หมวดหมู่':x.category||'','รายละเอียดอาการ':x.description||'','ผู้รายงาน':x.reporter||'','ช่างผู้รับผิดชอบ/รับแจ้ง':x.supervisor||'','สาเหตุ (Root Cause)':x.cause||'','การแก้ไข/ป้องกัน':x.action||'','สถานะ':x.status||'','จำนวนรูปภาพ':(x.photos||[]).length}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Machine Reports');XLSX.writeFile(wb,'ROUTER_Machine_Reports_'+localDate()+'.xlsx');Swal.fire({toast:true,position:'top-end',icon:'success',title:'ส่งออก Excel แล้ว ('+list.length+' รายการ)',showConfirmButton:false,timer:1800})};
 window.exportRecordsPdf=()=>{
 const list=reportsByMachine();
 if(!list.length){Swal.fire('ไม่มีข้อมูล','ยังไม่มีรายงานในระบบ','info');return}
 if(typeof html2pdf==='undefined'){Swal.fire('ไม่สามารถสร้าง PDF','ไม่พบไลบรารี html2pdf กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้า','error');return}
 const area=document.getElementById('pdf-area');if(!area){Swal.fire('ไม่สามารถสร้าง PDF','ไม่พบพื้นที่ออกรายงานในหน้า','error');return}
-const groups=[],map={};list.forEach(x=>{const k=x.machine||'ไม่ระบุเครื่อง';if(!map[k]){map[k]=[];groups.push(k)}map[k].push(x)});
-const photoCount=list.reduce((n,x)=>n+(x.photos||[]).length,0);
-const block=x=>`<div class="rep"><div class="rep-top"><span>${esc(x.category||'ไม่ระบุหมวดหมู่')}</span><span class="st">${esc(x.status||'-')}</span></div><table class="kv"><tbody><tr><td class="k">วัน/เวลาเริ่ม</td><td>${esc(x.startDate||'-')} ${esc(x.startTime||'')}</td><td class="k">วัน/เวลาจบ</td><td>${esc(x.endDate||'ยังไม่จบ')} ${esc(x.endTime||'')}</td></tr><tr><td class="k">เวลาหยุด</td><td>${Number(x.downtime||0)} นาที (${Math.floor(Number(x.downtime||0)/60)} ชม. ${Number(x.downtime||0)%60})</td><td class="k">ระดับความรุนแรง</td><td>${esc(x.severity||'-')}</td></tr><tr><td class="k">ผู้รายงาน</td><td>${esc(x.reporter||'-')}</td><td class="k">ช่างผู้รับผิดชอบ/รับแจ้ง</td><td>${esc(x.supervisor||'-')}</td></tr><tr><td class="k">สาเหตุ (Root Cause)</td><td colspan="3">${esc(x.cause||'-')}</td></tr><tr><td class="k">การแก้ไข/ป้องกัน</td><td colspan="3">${esc(x.action||'-')}</td></tr><tr><td class="k">อาการปัญหา</td><td colspan="3" style="white-space:pre-wrap">${esc(x.description||'-')}</td></tr></tbody></table>${(x.photos||[]).length?`<div class="pics">${x.photos.map(p=>`<div><img src="${p.dataUrl}" alt=""><small>${esc(p.caption||p.name||'')}</small></div>`).join('')}</div>`:''}</div>`;
-area.innerHTML=`<div class="pdf-report"><h1>รายงานปัญหาเครื่องจักร ROUTER</h1><p class="sub">รายละเอียดทั้งหมดรายเครื่อง · ${groups.length} เครื่อง · ${list.length} รายงาน · ${photoCount} ภาพหลักฐาน · สร้างเมื่อ ${new Date().toLocaleString('th-TH')}</p>${groups.map(m=>`<section class="mc"><h2>${esc(m)} <small>(${esc(groupOf(m))}) · ${map[m].length} รายงาน</small></h2>${map[m].map(block).join('')}</section>`).join('')}</div>`;
+area.innerHTML=pdfReportHtml(list);
 const isMobile=/Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.platform));
 document.body.classList.add('pdf-busy');
 area.classList.add('pdf-mode');

@@ -34,22 +34,6 @@ body {
   background: #94a3b8;
 }
 
-/* Active navigation tab highlight */
-.nav-btn.active {
-  background-color: #2563eb;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-}
-
-.mobile-nav-btn.active {
-  color: #2563eb;
-  font-weight: 600;
-}
-.mobile-nav-btn.active i {
-  transform: translateY(-2px);
-  color: #2563eb;
-}
-
 /* Glassmorphism effects */
 .glass-panel {
   background: rgba(255, 255, 255, 0.95);
@@ -270,11 +254,12 @@ body {
   }
 
   /* Hide UI elements during print */
-  header, nav, #mobile-bottom-nav, .no-print, button, .btn-action, #search-filter-card {
+  header, nav, .no-print, button, .btn-action, #search-filter-card {
     display: none !important;
   }
 
-  /* Unhide printable container and neutralize screen-only layout */
+  /* Unhide printable container and neutralize screen-only layout.
+     The container is created on demand by ensurePrintContainer() in app.js. */
   #printable-report-container {
     display: block !important;
     position: static !important;
@@ -286,8 +271,13 @@ body {
 
   /* Hide every other part of the app UI, so a mobile browser that prints the
      main document (instead of a properly sized sheet) still only shows the
-     report. #printable-report-container is a direct child of <body>. */
+     report. The printable container is a direct child of <body>. */
   body > *:not(#printable-report-container) {
+    display: none !important;
+  }
+
+  /* The vertical mode switcher must never reach paper. */
+  .mode-nav {
     display: none !important;
   }
 
@@ -473,9 +463,7 @@ button:disabled {
 }
 
 button i,
-a i,
-.nav-btn i,
-.mobile-nav-btn i {
+a i {
   flex: 0 0 auto;
   line-height: 1;
   vertical-align: middle;
@@ -555,29 +543,21 @@ label {
   outline: none;
 }
 
-.nav-btn,
-.mobile-nav-btn {
+button,
+a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
 }
 
-.nav-btn i,
-.mobile-nav-btn i {
+button i,
+a i {
   width: 1.15em;
   text-align: center;
 }
 
-.mobile-nav-btn {
-  min-height: 56px;
-  padding: 0.35rem 0.25rem;
-}
 
-.mobile-nav-btn span {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
 
 .glass-panel {
   -webkit-backdrop-filter: blur(10px);
@@ -653,10 +633,6 @@ img {
     font-size: 0.75rem;
   }
 
-  .mobile-nav-btn {
-    min-width: 0;
-    font-size: 0.7rem;
-  }
 }
 
 @media (max-width: 420px) {
@@ -719,3 +695,57 @@ main h3 i, main h2 i { filter: drop-shadow(0 2px 3px currentColor); }
 #nav-records i { color: #fcd34d; }
 #nav-calendar i { color: #c4b5fd; }
 @media (max-width: 420px) { .home-return-btn { padding: .5rem .65rem; } }
+
+/* ===== Vertical mode switcher (like โหมด 2) ===== */
+.mode-nav{display:flex;gap:8px;overflow-x:auto;padding:14px max(12px,calc((100vw - 80rem)/2 + 16px)) 4px;scrollbar-width:thin}
+.mode-nav .tab{white-space:nowrap;display:inline-flex;align-items:center;gap:8px;padding:11px 15px;border-radius:12px;color:#64748b;font-size:13px;font-weight:600;background:#fff;border:1px solid #e2e8f0;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,color .16s ease}
+.mode-nav .tab i{transition:none!important}
+.mode-nav .tab:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(15,23,42,.12)}
+.mode-nav .tab.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 5px 14px rgba(37,99,235,.35)}
+.mode-nav .tab.active i{color:#fde68a}
+.mode-nav .tab .cnt{background:rgba(148,163,184,.22);color:inherit;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px}
+.mode-nav .tab.active .cnt{background:rgba(255,255,255,.25)}
+.mode-nav a.tab i{color:#fbbf24}
+.mode-nav::-webkit-scrollbar{height:6px}
+.mode-nav::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
+@media (max-width:767px){
+  .mode-nav{padding:10px 12px 2px}
+  .mode-nav .tab{padding:10px 13px;font-size:12.5px}
+}
+@media print{.mode-nav{display:none!important}}
+
+/* ===== Unified icon buttons (shared look across both modes) ===== */
+.icon-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:42px;height:42px;min-width:42px;padding:0;
+  border:1px solid var(--ib-bd,#dbe3ed);border-radius:13px;
+  background:var(--ib-bg,#f8fafc);color:var(--ib-fg,#475569);
+  font-size:16px;line-height:1;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  box-shadow:0 1px 2px rgba(15,23,42,.06);
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease;
+}
+.icon-btn:hover{transform:translateY(-1px);box-shadow:0 7px 16px rgba(15,23,42,.14)}
+.icon-btn:active{transform:translateY(0) scale(.95);box-shadow:0 1px 2px rgba(15,23,42,.1)}
+.icon-btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.icon-btn i{pointer-events:none;transition:none!important;filter:none!important}
+.icon-btn:hover i,.icon-btn:active i{transform:none!important;filter:none!important}
+.icon-btn.excel{--ib-fg:#047857;--ib-bg:#ecfdf5;--ib-bd:#a7f3d0}
+.icon-btn.excel:hover{background:#d1fae5}
+.icon-btn.pdf{--ib-fg:#b91c1c;--ib-bg:#fef2f2;--ib-bd:#fecaca}
+.icon-btn.pdf:hover{background:#fee2e2}
+.icon-btn.print{--ib-fg:#1d4ed8;--ib-bg:#eff6ff;--ib-bd:#bfdbfe}
+.icon-btn.print:hover{background:#dbeafe}
+.icon-btn.view{--ib-fg:#4338ca;--ib-bg:#eef2ff;--ib-bd:#c7d2fe}
+.icon-btn.view:hover{background:#e0e7ff}
+.icon-btn.edit{--ib-fg:#b45309;--ib-bg:#fffbeb;--ib-bd:#fde68a}
+.icon-btn.edit:hover{background:#fef3c7}
+.icon-btn.del{--ib-fg:#b91c1c;--ib-bg:#fef2f2;--ib-bd:#fecaca}
+.icon-btn.del:hover{background:#fee2e2}
+.icon-btn.sm{width:36px;height:36px;min-width:36px;border-radius:11px;font-size:14px}
+.icon-btn.xs{width:32px;height:32px;min-width:32px;border-radius:10px;font-size:13px}
+.icon-btn.wide{width:auto;min-width:0;padding:0 14px;gap:8px;font-size:13px;font-weight:600}
+.icon-btn.wide span{white-space:nowrap}
+.icon-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+@media (max-width:400px){.icon-btn{width:40px;height:40px;min-width:40px;border-radius:12px}}
+@media (prefers-reduced-motion:reduce){.icon-btn{transition:none}.icon-btn:hover{transform:none}}
