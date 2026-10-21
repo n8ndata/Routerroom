@@ -718,5 +718,4 @@ main h3 i, main h2 i { filter: drop-shadow(0 2px 3px currentColor); }
 #nav-form i { color: #86efac; }
 #nav-records i { color: #fcd34d; }
 #nav-calendar i { color: #c4b5fd; }
-#nav-export i { color: #f9a8d4; }
 @media (max-width: 420px) { .home-return-btn { padding: .5rem .65rem; } }

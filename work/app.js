@@ -328,7 +328,6 @@ async function activateRouterApp(user, role) {
   routerAppInitialized = true;
   initFormDateTime();
   populateProblemCategories('internal');
-  initExportDateDefaults();
   await loadInitialLocalData();
   setupCloudSync();
   setupCalendar(currentCalendarDate);
@@ -337,7 +336,6 @@ async function activateRouterApp(user, role) {
 document.addEventListener('DOMContentLoaded', async () => {
   initFormDateTime();
   populateProblemCategories('internal');
-  initExportDateDefaults();
 
   // Bind image inputs (Mode 2 style: pick or capture, auto-compress on select)
   const imagesInput = document.getElementById('images');
@@ -2161,43 +2159,9 @@ function waitForImages(rootEl, done) {
   });
 }
 
-// ================= EXPORT FUNCTIONS (EXCEL & FULL SUMMARY PDF) =================
-function initExportDateDefaults() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  
-  const startInput = document.getElementById('export-start-date');
-  const endInput = document.getElementById('export-end-date');
-
-  if (startInput) startInput.value = `${year}-${month}-01`;
-  if (endInput) endInput.value = localDateString(now);
-}
-
+// ================= EXCEL EXPORT (QUICK EXPORT FROM RECORDS LIST) =================
 function exportFilteredExcel() {
   exportToExcelData(filteredReports, 'ROUTER_Filtered_Reports.xlsx');
-}
-
-function exportToExcelCustom() {
-  const startDate = document.getElementById('export-start-date').value;
-  const endDate = document.getElementById('export-end-date').value;
-  const type = document.getElementById('export-type').value;
-  const machine = document.getElementById('export-machine').value;
-
-  const list = allReports.filter(r => {
-    if (startDate && r.reportDate && r.reportDate < startDate) return false;
-    if (endDate && r.reportDate && r.reportDate > endDate) return false;
-    if (type !== 'all' && r.reportType !== type) return false;
-    if (machine !== 'all' && r.machineGroup !== machine) return false;
-    return true;
-  });
-
-  if (list.length === 0) {
-    Swal.fire('ไม่พบข้อมูล', 'ไม่มีรายงานตามช่วงเวลาและเงื่อนไขที่เลือก', 'info');
-    return;
-  }
-
-  exportToExcelData(list, `ROUTER_Report_${startDate}_to_${endDate}.xlsx`);
 }
 
 function exportToExcelData(dataList, fileName) {
@@ -2244,202 +2208,11 @@ function exportToExcelData(dataList, fileName) {
   });
 }
 
-// Export full report bundle as ZIP: JSON + CSV summary + evidence photos.
-async function exportReportsZip() {
-  if (typeof JSZip === 'undefined') {
-    Swal.fire({ icon: 'error', title: 'ไม่พบเครื่องมือ ZIP', text: 'กรุณาตรวจสอบการเชื่อมต่อ CDN แล้วลองใหม่' });
-    return;
-  }
-  const reports = Array.isArray(filteredReports) ? filteredReports : allReports;
-  if (!reports.length) {
-    Swal.fire({ icon: 'info', title: 'ไม่มีรายงานให้ส่งออก', text: 'ปรับตัวกรองหรือบันทึกรายงานก่อน' });
-    return;
-  }
-  const zip = new JSZip();
-  const folder = zip.folder('ROUTER_PROBLEM_REPORTS');
-  const cleanReports = reports.map(r => ({ ...r, photos: (r.photos || []).map(p => ({ name: p.name, caption: p.caption || '' })) }));
-  folder.file('reports.json', JSON.stringify(cleanReports, null, 2));
-  const csvRows = reports.map(r => ({
-    'Report ID': r.id || '', 'Type': r.reportType || '', 'Date': r.reportDateTime || r.reportDate || '',
-    'Machine': r.machineName || '', 'Title': r.title || '', 'Category': r.problemCategory || '',
-    'Lot': r.lotNo || '', 'Part No': r.partNo || '', 'Model Serial': r.modelSerial || '', 'Description': r.description || '',
-    'Root Cause': r.rootCause || r.escapedRootCause || '', 'Corrective Action': r.correctiveAction || '',
-    'Status': r.status || '', 'Severity': r.severity || '', 'Reporter': r.reporterName || '',
-    'Images': (r.photos || []).length
-  }));
-  if (typeof XLSX !== 'undefined') {
-    const ws = XLSX.utils.json_to_sheet(csvRows);
-    const csv = XLSX.utils.sheet_to_csv(ws);
-    folder.file('reports.csv', '\ufeff' + csv);
-  }
-  const imagesFolder = folder.folder('evidence');
-  let imageCount = 0;
-  for (const report of reports) {
-    const list = report.photos || [];
-    for (let i = 0; i < list.length; i++) {
-      const p = list[i];
-      if (!p.dataUrl || !p.dataUrl.startsWith('data:')) continue;
-      try {
-        const base64 = p.dataUrl.split(',')[1];
-        const ext = (p.name || 'jpg').split('.').pop().replace(/[^a-z0-9]/gi, '').slice(0, 6) || 'jpg';
-        imagesFolder.file(`${String(report.id || 'report').replace(/[^a-z0-9_-]/gi, '_')}_${i + 1}_${String(p.name || 'photo').replace(/[^a-z0-9_.-]/gi, '_')}.${ext}`, base64, { base64: true });
-        imageCount++;
-      } catch (error) { console.warn('ZIP evidence skipped:', report.id, imageCount, error); }
-    }
-  }
-  folder.file('README-TH.txt', `แพ็กเกจรายงานปัญหา ROUTER\nจำนวนรายงาน: ${reports.length}\nจำนวนรูปภาพที่แนบใน ZIP: ${imageCount}\nไฟล์ reports.json มีรายละเอียดเต็มของรายงาน\nไฟล์ reports.csv มีข้อมูลสรุปสำหรับเปิดใน Excel\n`);
-  try {
-    Swal.fire({ title: 'กำลังจัดทำ ZIP', text: 'กำลังรวมข้อมูลและรูปภาพ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 5 } });
-    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `ROUTER_Reports_${localDateString()}.zip`;
-    document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(link.href), 30000);
-    Swal.fire({ icon: 'success', title: 'ส่งออก ZIP สำเร็จ', text: `รายงาน ${reports.length} รายการ พร้อมรูปภาพ ${imageCount} รูป` });
-  } catch (error) {
-    console.error(error); Swal.fire({ icon: 'error', title: 'สร้าง ZIP ไม่สำเร็จ', text: error.message || 'โปรดลองใหม่' });
-  }
-}
-
-// Export Summary PDF with KPI table and thumbnails
-function exportSummaryPDF() {
-  const startDate = document.getElementById('export-start-date').value;
-  const endDate = document.getElementById('export-end-date').value;
-  const type = document.getElementById('export-type').value;
-  const machine = document.getElementById('export-machine').value;
-
-  const list = allReports.filter(r => {
-    if (startDate && r.reportDate && r.reportDate < startDate) return false;
-    if (endDate && r.reportDate && r.reportDate > endDate) return false;
-    if (type !== 'all' && r.reportType !== type) return false;
-    if (machine !== 'all' && r.machineGroup !== machine) return false;
-    return true;
-  });
-
-  if (list.length === 0) {
-    Swal.fire('ไม่พบข้อมูล', 'ไม่มีรายงานตามช่วงเวลาที่เลือก', 'info');
-    return;
-  }
-
-  const container = document.getElementById('printable-report-container');
-  const internalCount = list.filter(r => r.reportType === 'internal').length;
-  const escapedCount = list.filter(r => r.reportType === 'escaped').length;
-  const totalDefect = list.reduce((sum, r) => sum + (parseFloat(r.defectQty) || 0), 0);
-
-  container.innerHTML = `
-    <div class="print-page font-sans text-slate-800">
-      
-      <!-- Summary Header -->
-      <div class="border-b-2 border-slate-800 pb-3 mb-4 flex justify-between items-center">
-        <div>
-          <h1 class="text-xl font-black text-slate-900">ROUTER INCIDENT SUMMARY REPORT</h1>
-          <h2 class="text-xs font-semibold text-blue-800">รายงานสรุปผลปัญหาแผนก ROUTER และการติดตามงานหลุด</h2>
-        </div>
-        <div class="text-right text-xs">
-          <div>ช่วงวันที่: <strong>${startDate || '......................'} ถึง: ${endDate || '......................'}</strong></div>
-          <div class="text-slate-400">จำนวนทั้งหมด: ${list.length} รายการ</div>
-        </div>
-      </div>
-
-      <!-- KPI Summary Cards in Report -->
-      <div class="grid grid-cols-4 gap-3 mb-4 text-center">
-        <div class="p-2 border border-slate-300 rounded bg-slate-50">
-          <span class="block text-[10px] text-slate-500 uppercase">รวมทั้งหมด</span>
-          <span class="text-lg font-bold text-slate-800">${list.length}</span>
-        </div>
-        <div class="p-2 border border-red-200 rounded bg-red-50">
-          <span class="block text-[10px] text-red-600 uppercase">ปัญหาภายใน</span>
-          <span class="text-lg font-bold text-red-600">${internalCount}</span>
-        </div>
-        <div class="p-2 border border-amber-200 rounded bg-amber-50">
-          <span class="block text-[10px] text-amber-700 uppercase">งานหลุดออกไป</span>
-          <span class="text-lg font-bold text-amber-700">${escapedCount}</span>
-        </div>
-        <div class="p-2 border border-purple-200 rounded bg-purple-50">
-          <span class="block text-[10px] text-purple-700 uppercase">งานเสียสะสม</span>
-          <span class="text-lg font-bold text-purple-700">${totalDefect.toLocaleString()} ชิ้น</span>
-        </div>
-      </div>
-
-      <!-- Table Summary -->
-      <table class="w-full text-[10px] border-collapse border border-slate-400 mb-4">
-        <colgroup>
-          <col style="width:6%">
-          <col style="width:10%">
-          <col style="width:8%">
-          <col style="width:10%">
-          <col style="width:20%">
-          <col style="width:14%">
-          <col style="width:7%">
-          <col style="width:19%">
-          <col style="width:6%">
-        </colgroup>
-        <thead>
-          <tr class="bg-slate-200 text-slate-800">
-            <th class="border border-slate-300 p-1.5 text-center">ลำดับ</th>
-            <th class="border border-slate-300 p-1.5 text-left">วัน/เวลา</th>
-            <th class="border border-slate-300 p-1.5 text-left">ประเภท</th>
-            <th class="border border-slate-300 p-1.5 text-left">เครื่องจักร</th>
-            <th class="border border-slate-300 p-1.5 text-left">หัวข้อปัญหา</th>
-            <th class="border border-slate-300 p-1.5 text-left">Lot / P/N</th>
-            <th class="border border-slate-300 p-1.5 text-center">งานเสีย</th>
-            <th class="border border-slate-300 p-1.5 text-left">สาเหตุ & การแก้ไข</th>
-            <th class="border border-slate-300 p-1.5 text-center">รูป</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${list.map((r, i) => `
-            <tr class="border-b border-slate-200">
-              <td class="border border-slate-300 p-1 text-center font-bold">${i + 1}</td>
-              <td class="border border-slate-300 p-1 whitespace-nowrap">${r.reportDate || ''}</td>
-              <td class="border border-slate-300 p-1 font-semibold ${r.reportType === 'internal' ? 'text-red-700' : 'text-amber-700'}">
-                ${r.reportType === 'internal' ? 'ภายใน' : 'งานหลุด'}
-              </td>
-              <td class="border border-slate-300 p-1 font-bold">${escapeHtml(r.machineName)}</td>
-              <td class="border border-slate-300 p-1 max-w-[150px] truncate">${escapeHtml(r.title)}</td>
-              <td class="border border-slate-300 p-1">${escapeHtml(r.lotNo || '-')}${r.modelSerial ? `<div class="text-[9px] text-slate-500">S/N: ${escapeHtml(r.modelSerial)}</div>` : ''}</td>
-              <td class="border border-slate-300 p-1 text-center font-bold ${r.defectQty > 0 ? 'text-red-600' : ''}">${r.defectQty || 0}</td>
-              <td class="border border-slate-300 p-1 max-w-[180px] truncate text-[9px]">${escapeHtml(r.rootCause || r.correctiveAction || '-')}</td>
-              <td class="border border-slate-300 p-1 text-center">${(r.photos || []).length > 0 ? `<img src="${r.photos[0].dataUrl}" class="w-6 h-6 object-cover mx-auto rounded border">` : '-'}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-
-      <!-- Sign-off Block -->
-      <div class="mt-6 border border-slate-300 p-3 bg-slate-50 page-break-inside-avoid">
-        <div class="grid grid-cols-2 gap-4 text-center text-xs">
-          <div>
-            <span class="block font-semibold mb-6">ผู้จัดทำรายงาน</span>
-            <span class="block text-slate-500">...................................................</span>
-            <span class="block text-[10px] text-slate-400 mt-1">วันที่: ......./......./.......</span>
-          </div>
-          <div>
-            <span class="block font-semibold mb-6">ผู้รับรอง / ผู้จัดการแผนก</span>
-            <span class="block text-slate-500">...................................................</span>
-            <span class="block text-[10px] text-slate-400 mt-1">วันที่: ......./......./.......</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  `;
-
-  const opt = {
-    margin: 0,
-    filename: `ROUTER_Summary_Report_${startDate}_${endDate}.pdf`,
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true, windowWidth: 794, scrollX: 0, scrollY: 0 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'], avoid: ['.page-break-inside-avoid', 'tr'] }
-  };
-  const element = container.querySelector('.print-page');
-  html2pdf().set(opt).from(element).save();
-}
-
 // ================= NAVIGATION & TAB SWITCHING =================
 function switchTab(tab) {
   currentTab = tab;
 
-  const views = ['dashboard', 'form', 'records', 'calendar', 'export'];
+  const views = ['dashboard', 'form', 'records', 'calendar'];
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) {
