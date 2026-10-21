@@ -15,6 +15,98 @@
 .tab:hover i { transform: translateY(-2px) scale(1.08); filter: drop-shadow(0 2px 3px currentColor); }
 .tab.active i { color: #fde68a; }
 
+/* =========================================================
+   ระบบไอคอนสีสัน (โหมด 2)
+   ทุกปุ่มมีไอคอนสีเฉพาะตัว อ่านง่าย และเข้ากับโทนหน้าปก
+   ========================================================= */
+:root {
+  --ic-dashboard: #38bdf8;   /* แดชบอร์ด */
+  --ic-entry:     #34d399;   /* ลงข้อมูล */
+  --ic-records:   #fbbf24;   /* รายการรายงาน */
+  --ic-analytics: #c4b5fd;   /* กราฟสรุป */
+  --ic-home:      #f0a868;   /* หน้าหลัก */
+  --ic-view:      #818cf8;   /* รายละเอียด */
+  --ic-edit:      #fcd34d;   /* แก้ไข */
+  --ic-del:       #fb7185;   /* ลบ */
+  --ic-back:      #94a3b8;   /* ย้อนกลับ */
+}
+
+/* ---- เมนูแถบบน ---- */
+.navrow .tab:nth-child(1) { --hue: var(--ic-dashboard); }
+.navrow .tab:nth-child(2) { --hue: var(--ic-entry); }
+.navrow .tab:nth-child(3) { --hue: var(--ic-records); }
+.navrow .tab:nth-child(4) { --hue: var(--ic-analytics); }
+.navrow .tab:nth-child(5) { --hue: var(--ic-home); }
+
+/* ---- เมนูแถบล่าง ---- */
+.bottomnav .tab:nth-child(1) { --hue: var(--ic-dashboard); }
+.bottomnav .tab:nth-child(2) { --hue: var(--ic-entry); }
+.bottomnav .tab:nth-child(3) { --hue: var(--ic-records); }
+.bottomnav .tab:nth-child(4) { --hue: var(--ic-analytics); }
+
+.navrow .tab i,
+.bottomnav .tab i {
+  color: var(--hue, #64748b);
+  filter: drop-shadow(0 1px 2px rgba(15,23,42,.22));
+  transition: color .18s ease, transform .18s ease, filter .18s ease;
+}
+/* เมนูที่ active: ไอคอนเป็นสีขาวเรืองแสงด้วยสีประจำตัว */
+.navrow .tab.active i,
+.bottomnav .tab.active i {
+  color: #fff;
+  filter: drop-shadow(0 0 8px var(--hue, rgba(255,255,255,.45)));
+}
+@media (hover:hover) {
+  .navrow .tab:hover i,
+  .bottomnav .tab:hover i {
+    transform: translateY(-2px) scale(1.12);
+    filter: drop-shadow(0 2px 6px var(--hue, rgba(15,23,42,.35)));
+  }
+}
+
+/* ---- ปุ่มกดทั่วไป ---- */
+.btn i {
+  transition: transform .18s ease, filter .18s ease;
+  filter: drop-shadow(0 1px 2px rgba(15,23,42,.18));
+}
+@media (hover:hover) {
+  .btn:hover i { transform: translateY(-1px) scale(1.12); }
+}
+.btn.primary i { color: #fde68a; filter: drop-shadow(0 1px 3px rgba(15,23,42,.45)); }
+.btn.white i   { color: #2563eb; }
+.btn.soft i.fa-eye    { color: var(--ic-view); }
+.btn.soft i.fa-pen    { color: var(--ic-edit); }
+.btn.danger i.fa-trash { color: var(--ic-del); }
+.btn i.fa-arrow-right { color: var(--ic-dashboard); }
+.btn i.fa-arrow-left  { color: var(--ic-back); }
+
+/* ---- ปุ่มกลับหน้าหลัก: ไอคอนทองอุ่น + เรืองแสง ---- */
+.machine-home-btn i {
+  color: #fcd34d;
+  filter: drop-shadow(0 2px 5px rgba(15,23,42,.55));
+}
+@media (hover:hover) {
+  .machine-home-btn:hover i { transform: translateY(-1px) scale(1.12); }
+}
+/* เครื่องแคบมาก: ย่อปุ่มกลับหน้าหลักแต่ยังแสดงคำว่า "หน้าหลัก" เสมอ */
+@media (max-width: 400px) {
+  .machine-home-btn { padding: .5rem .6rem; gap: .35rem; }
+  .machine-home-btn span { font-size: .75rem; }
+}
+
+/* ---- แถบเมนูล่าง (มือถือ/แท็บเล็ต ≤1023px) ---- */
+/* โครงสร้างแท่งเต็มจอแบบ fixed และการซ่อนเมื่อจอใหญ่ ใช้ของเดิมของระบบ
+   ที่นี่เพิ่มความสวยงามของไอคอนเท่านั้น (ใหญ่ขึ้น + สีสันชัดเจน) */
+.bottomnav .tab i {
+  font-size: 18px;
+  line-height: 1.15;
+}
+/* แท็บที่ active ของแถบล่าง: พื้นหลังโปร่งใส จึงใช้สีน้ำเงินให้เข้ากับตัวอักษร */
+.bottomnav .tab.active i {
+  color: #2563eb;
+  filter: drop-shadow(0 0 7px rgba(37,99,235,.55));
+}
+
 /* ---- PRINT: list panel only (records tab) ---- */
 @page { margin: 12mm; }
 @media print {

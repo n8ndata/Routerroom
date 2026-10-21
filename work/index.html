@@ -30,7 +30,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="styles.css?v=3.11">
+  <link rel="stylesheet" href="styles.css?v=3.13">
 
   <script>
     tailwind.config = {
@@ -59,23 +59,20 @@
   <!-- ================= TOP HEADER ================= -->
   <header class="bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-950 text-white shadow-lg sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-600/90 flex items-center justify-center text-white font-bold text-xl shadow-md border border-blue-400/30">
+      <div class="flex items-center space-x-3 min-w-0">
+        <div class="w-10 h-10 shrink-0 rounded-xl bg-blue-600/90 flex items-center justify-center text-white font-bold text-xl shadow-md border border-blue-400/30">
           <i class="fa-solid fa-microchip"></i>
         </div>
-        <div>
-          <div class="flex items-center space-x-2">
-            <h1 class="text-lg sm:text-xl font-bold tracking-tight">ระบบบันทึกปัญหาแผนก ROUTER</h1>
-            <span class="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 px-2.5 py-0.5 rounded-full font-bold inline-block">v3.6 ปรับปรุงระบบ</span>
-          </div>
-          <p class="text-xs text-blue-200/90">ติดตามปัญหาภายใน & รับรายงานงานหลุด (Escaped Defect)</p>
+        <div class="min-w-0">
+          <h1 class="text-lg sm:text-xl font-bold tracking-tight leading-tight break-words">ระบบบันทึกปัญหาแผนก ROUTER</h1>
+          <p class="hidden sm:block text-xs text-blue-200/90">ติดตามปัญหาภายใน & รับรายงานงานหลุด (Escaped Defect)</p>
         </div>
       </div>
 
       <!-- Sync Status & Quick Actions -->
       <div class="flex items-center space-x-2 sm:space-x-3">
-        <a href="../index.html" class="home-return-btn inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 hover:bg-white/20 px-3 py-2 text-xs sm:text-sm font-bold text-white shadow-md transition" title="กลับหน้าหลักเลือกโหมด">
-          <i class="fa-solid fa-house-chimney text-amber-300"></i><span class="hidden sm:inline">หน้าหลัก</span>
+        <a href="../index.html" class="home-return-btn inline-flex items-center gap-2 shrink-0 rounded-xl border border-white/25 bg-white/10 hover:bg-white/20 px-3 py-2 text-xs sm:text-sm font-bold text-white shadow-md transition" title="กลับหน้าหลักเลือกโหมด">
+          <i class="fa-solid fa-house-chimney"></i><span class="whitespace-nowrap">หน้าหลัก</span>
         </a>
         <div id="connection-status" class="flex items-center space-x-1.5 text-xs bg-emerald-950/60 text-emerald-300 border border-emerald-600/40 px-2.5 py-1 rounded-full">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -97,7 +94,6 @@
     <button type="button" class="tab" data-tab="form"><i class="fa-solid fa-pen-to-square"></i> ลงข้อมูล</button>
     <button type="button" class="tab" data-tab="records"><i class="fa-solid fa-list-check"></i> รายการรายงาน <span class="cnt" id="badge-count">0</span></button>
     <button type="button" class="tab" data-tab="calendar"><i class="fa-solid fa-calendar-days"></i> ปฏิทินงาน</button>
-    <a class="tab" href="../index.html"><i class="fa-solid fa-house"></i> หน้าหลัก</a>
   </nav>
 
   <!-- ================= MAIN CONTAINER ================= -->

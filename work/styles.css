@@ -694,15 +694,64 @@ main h3 i, main h2 i { filter: drop-shadow(0 2px 3px currentColor); }
 #nav-form i { color: #86efac; }
 #nav-records i { color: #fcd34d; }
 #nav-calendar i { color: #c4b5fd; }
-@media (max-width: 420px) { .home-return-btn { padding: .5rem .65rem; } }
+@media (max-width: 420px) { .home-return-btn { padding: .5rem .6rem; gap: .3rem; font-size: .72rem; } }
+
+/* =========================================================
+   ปุ่มกลับหน้าหลัก (โหมด 1) — โทนทองแดงตามหน้าปก
+   ========================================================= */
+header .home-return-btn {
+  color: #f7dcc0;
+  background: linear-gradient(135deg, rgba(240,168,104,.30), rgba(240,168,104,.10));
+  border-color: rgba(240,168,104,.50);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 8px 18px -12px rgba(240,168,104,.85);
+}
+header .home-return-btn:hover {
+  color: #fff3e4;
+  background: linear-gradient(135deg, rgba(240,168,104,.48), rgba(240,168,104,.20));
+  border-color: rgba(240,168,104,.75);
+}
+header .home-return-btn i {
+  color: #f6bd85;
+  filter: drop-shadow(0 2px 5px rgba(240,168,104,.55));
+}
+
+/* =========================================================
+   ระบบไอคอนสีสัน (โหมด 1) — แต่ละเมนูมีสีเฉพาะตัว
+   ========================================================= */
+:root {
+  --ic-dashboard: #38bdf8;
+  --ic-entry:     #34d399;
+  --ic-records:   #fbbf24;
+  --ic-calendar:  #c4b5fd;
+  --ic-home:      #f0a868;
+}
+.mode-nav .tab:nth-child(1) { --hue: var(--ic-dashboard); }
+.mode-nav .tab:nth-child(2) { --hue: var(--ic-entry); }
+.mode-nav .tab:nth-child(3) { --hue: var(--ic-records); }
+.mode-nav .tab:nth-child(4) { --hue: var(--ic-calendar); }
+.mode-nav .tab i {
+  color: var(--hue, #64748b);
+  filter: drop-shadow(0 1px 2px rgba(15,23,42,.22));
+  transition: color .18s ease, transform .18s ease, filter .18s ease;
+}
+.mode-nav .tab.active i {
+  color: #fff;
+  filter: drop-shadow(0 0 8px var(--hue, rgba(255,255,255,.45)));
+}
+@media (hover:hover) {
+  .mode-nav .tab:hover i {
+    transform: translateY(-2px) scale(1.12);
+    filter: drop-shadow(0 2px 6px var(--hue, rgba(15,23,42,.35)));
+  }
+}
 
 /* ===== Vertical mode switcher (like โหมด 2) ===== */
 .mode-nav{display:flex;gap:8px;overflow-x:auto;padding:14px max(12px,calc((100vw - 80rem)/2 + 16px)) 4px;scrollbar-width:thin}
 .mode-nav .tab{white-space:nowrap;display:inline-flex;align-items:center;gap:8px;padding:11px 15px;border-radius:12px;color:#64748b;font-size:13px;font-weight:600;background:#fff;border:1px solid #e2e8f0;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,color .16s ease}
-.mode-nav .tab i{transition:none!important}
+.mode-nav .tab i{transition:color .18s ease,transform .18s ease,filter .18s ease}
 .mode-nav .tab:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(15,23,42,.12)}
 .mode-nav .tab.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 5px 14px rgba(37,99,235,.35)}
-.mode-nav .tab.active i{color:#fde68a}
+.mode-nav .tab.active i{color:#fff;filter:drop-shadow(0 0 8px var(--hue,rgba(255,255,255,.45)))}
 .mode-nav .tab .cnt{background:rgba(148,163,184,.22);color:inherit;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px}
 .mode-nav .tab.active .cnt{background:rgba(255,255,255,.25)}
 .mode-nav a.tab i{color:#fbbf24}
