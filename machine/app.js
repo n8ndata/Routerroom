@@ -38,10 +38,16 @@ if(isMobile&&window.html2pdf){
   // Mobile browsers ignore @page size/margin, so the native dialog gives a
   // wrong-sized sheet and stamps the page URL. Generating a real A4 PDF is
   // deterministic and carries no browser header/footer.
-  area.style.display='block';area.style.position='fixed';area.style.left='-9999px';area.style.top='0';area.style.width='210mm';area.style.padding='12mm';area.style.background='#fff';
-  const opt={margin:0,filename:'ROUTER_Machine_Report_'+(new Date().toISOString().slice(0,10))+'.pdf',image:{type:'jpeg',quality:.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy'],avoid:['tr']}};
-  setTimeout(()=>{html2pdf().set(opt).from(area).save().then(()=>{area.style.cssText='';area.style.display='';done()}).catch(()=>{area.style.cssText='';done()})},250);
+  // IMPORTANT: html2canvas renders under SCREEN media, so the @media print
+  // rules never apply here — the report must get its layout from the
+  // #print-area.pdf-mode screen rules or the PDF comes out blank/unstyled.
+  area.classList.add('pdf-mode');
+  const opt={margin:0,filename:'ROUTER_Machine_Report_'+(new Date().toISOString().slice(0,10))+'.pdf',image:{type:'jpeg',quality:.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:794,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy'],avoid:['tr']}};
+  const cleanup=()=>{area.classList.remove('pdf-mode');area.style.cssText='';area.style.display='';done()};
+  Swal.fire({title:'กำลังสร้างไฟล์ PDF',text:'กำลังจัดทำรายงาน '+list.length+' รายการ อาจใช้เวลาสักครู่...',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
+  setTimeout(()=>{html2pdf().set(opt).from(area).save().then(()=>{cleanup();Swal.close()}).catch(err=>{console.error('PDF generation failed:',err);cleanup();Swal.fire('สร้างไฟล์ PDF ไม่สำเร็จ',(err&&err.message)||'เบราว์เซอร์สร้างไฟล์ไม่ได้ โปรดลองใหม่ หรือลดจำนวนรายการ/ภาพในรายงาน','error')})},250);
 }else{
+  if(isMobile)showSystemNotice('ไม่พบไลบรารี html2pdf (ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช) — จะใช้การพิมพ์ของเบราว์เซอร์แทน ซึ่งอาจไม่ได้ขนาด A4 ที่ถูกต้อง');
   window.addEventListener('afterprint',done);setTimeout(()=>{window.print()},250);setTimeout(done,60000)
 }};
 function renderCharts(){if(!window.Chart)return;const count=k=>{const o={};items.forEach(x=>{const v=x[k]||'ไม่ระบุ';o[v]=(o[v]||0)+1});return Object.entries(o).sort((a,b)=>b[1]-a[1])};function draw(id,type,labels,data,colors){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),{type,data:{labels,datasets:[{label:'จำนวน',data,backgroundColor:colors,borderRadius:5}]},options:{responsive:true,plugins:{legend:{display:type==='doughnut',position:'bottom'}},scales:type==='doughnut'?{}:{y:{beginAtZero:true,ticks:{precision:0}}}}})}let a=count('machine').slice(0,12);draw('machineChart','bar',a.map(x=>x[0]),a.map(x=>x[1]),'#6366f1');a=count('status');draw('statusChart','doughnut',a.map(x=>x[0]),a.map(x=>x[1]),['#f59e0b','#3b82f6','#10b981','#94a3b8']);a=count('category').slice(0,8);draw('categoryChart','bar',a.map(x=>x[0]),a.map(x=>x[1]),'#0ea5e9');a=items.slice().sort((x,y)=>Number(y.downtime||0)-Number(x.downtime||0)).slice(0,10);draw('downtimeChart','bar',a.map(x=>x.machine),a.map(x=>Number(x.downtime||0)),'#f97316');const d={};for(let i=13;i>=0;i--){const dt=new Date();dt.setDate(dt.getDate()-i);d[dt.toISOString().slice(0,10)]=0}items.forEach(x=>{if(d[x.startDate]!=null)d[x.startDate]++});draw('trendChart','line',Object.keys(d).map(k=>k.slice(5)),Object.values(d),'#0ea5e9')}

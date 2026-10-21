@@ -32,6 +32,38 @@
    ========================================================= */
 #print-area { display: none; }
 
+/* =========================================================
+   SCREEN-MODE PDF STYLES (#print-area.pdf-mode)
+   The mobile export path renders the report with html2pdf /
+   html2canvas, which captures under SCREEN media — the
+   @media print block below never applies during that capture.
+   Without these rules the report is screenshotted unstyled
+   (full-size photos, no borders), the canvas grows past the
+   phone's canvas limit and the saved PDF comes out blank.
+   ========================================================= */
+#print-area.pdf-mode {
+  display: block;
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 210mm;
+  padding: 12mm;
+  background: #fff;
+  color: #172033;
+  font: 12px Arial, sans-serif;
+  box-sizing: border-box;
+}
+#print-area.pdf-mode * { box-sizing: border-box; max-width: 100%; }
+#print-area.pdf-mode h1 { font-size: 20px; margin: 0 0 8px; }
+#print-area.pdf-mode p { line-height: 1.6; margin: 0 0 12px; }
+#print-area.pdf-mode table { border-collapse: collapse; width: 100%; font-size: 10px; table-layout: fixed; }
+#print-area.pdf-mode td, #print-area.pdf-mode th { border: 1px solid #999; padding: 6px; text-align: left; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
+#print-area.pdf-mode th { background: #eaf0f9; }
+#print-area.pdf-mode img { max-width: 100px; max-height: 90px; object-fit: contain; }
+#print-area.pdf-mode .photos { display: flex; flex-wrap: wrap; gap: 4px; }
+#print-area.pdf-mode .sign { display: flex; gap: 40px; margin-top: 45px; }
+#print-area.pdf-mode .sign div { width: 33%; border-top: 1px solid #555; padding-top: 8px; text-align: center; }
+
 @media print {
   /* Desktop path: zero page margin removes the browser's header/footer
      strip (the file:/// URL and date); the visual margin is recreated
