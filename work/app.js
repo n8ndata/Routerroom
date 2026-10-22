@@ -2359,6 +2359,9 @@ function switchTab(tab) {
   // Vertical mode switcher highlight (same as โหมด 2)
   document.querySelectorAll('.mode-nav .tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
 
+  // แถบเมนูล่าง (มือถือ/แท็บเล็ต) ต้องตรงกับแท็บที่เลือกเสมอ
+  document.querySelectorAll('.bottomnav .tab[data-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+
   // Tab-specific data refresh
   if (tab === 'dashboard') {
     applyDashboardFilter();
@@ -2371,17 +2374,18 @@ function switchTab(tab) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Attach the vertical mode switcher (buttons use data-tab, like โหมด 2)
+// Attach the vertical mode switcher + the mobile bottom bar (buttons use data-tab)
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.mode-nav .tab[data-tab]').forEach(btn => {
+  document.querySelectorAll('.mode-nav .tab[data-tab], .bottomnav .tab[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
-  const current = document.querySelector('.mode-nav .tab.active');
+  const current = document.querySelector('.mode-nav .tab.active, .bottomnav .tab.active');
   if (current && current.dataset.tab) switchTab(current.dataset.tab);
 });
 
 function updateBadgeCounts() {
   setText('badge-count', allReports.length);
+  setText('badge-count-mobile', allReports.length);
 }
 
 // Utility: Escape HTML

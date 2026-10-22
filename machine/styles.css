@@ -58,6 +58,7 @@ html, body, *, *::before, *::after {
 .bottomnav .tab:nth-child(2) { --hue: var(--ic-entry); }
 .bottomnav .tab:nth-child(3) { --hue: var(--ic-records); }
 .bottomnav .tab:nth-child(4) { --hue: var(--ic-analytics); }
+.bottomnav .tab:nth-child(5) { --hue: var(--ic-home); }
 
 .navrow .tab i,
 .bottomnav .tab i {

@@ -777,6 +777,64 @@ header .home-return-btn i {
 }
 @media print{.mode-nav{display:none!important}}
 
+/* =========================================================
+   แถบเมนูล่าง (มือถือ/แท็บเล็ต ≤1023px) — เหมือนโหมด 2
+   ใช้แทนแถบเมนูบนบนจอเล็ก เพื่อให้สลับแท็บ + กลับหน้าปกได้ตลอดเวลา
+   โดยไม่ต้องเลื่อนขึ้นไปหาแถบเมนูด้านบน
+   ========================================================= */
+.bottomnav{ display:none; }
+@media (max-width:1023px){
+  /* ซ่อนแถบเมนูบน (จอเล็กใช้แถบล่างแทน) */
+  .mode-nav{ display:none; }
+
+  .bottomnav{
+    position:fixed; z-index:40; bottom:0; left:0; right:0;
+    display:flex; align-items:stretch; justify-content:space-around; gap:2px;
+    background:rgba(255,255,255,.94);
+    -webkit-backdrop-filter:blur(12px);
+            backdrop-filter:blur(12px);
+    border-top:1px solid #e2e8f0;
+    padding:6px 4px max(6px, env(safe-area-inset-bottom));
+    box-shadow:0 -8px 22px -16px rgba(15,23,42,.5);
+  }
+  .bottomnav .tab{
+    flex:1 1 0; min-width:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    padding:6px 2px; border-radius:12px;
+    color:#64748b; font-size:10.5px; font-weight:600; line-height:1.2;
+    background:transparent; border:1px solid transparent; cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    transition:background .16s ease, color .16s ease;
+  }
+  .bottomnav .tab i{
+    font-size:18px; line-height:1.1;
+    color:var(--hue, #64748b);
+    transition:transform .18s ease, filter .18s ease;
+  }
+  .bottomnav .tab .lbl{
+    display:inline-flex; align-items:center; gap:4px;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .bottomnav .tab .cnt{
+    background:rgba(148,163,184,.25); color:inherit;
+    font-size:10px; font-weight:700; padding:0 6px; border-radius:999px; line-height:1.5;
+  }
+  .bottomnav .tab.active{
+    background:#2563eb; color:#fff; border-color:#2563eb;
+    box-shadow:0 6px 14px -9px rgba(37,99,235,.75);
+  }
+  .bottomnav .tab.active i{ color:#fff; filter:drop-shadow(0 0 8px rgba(255,255,255,.45)); }
+  .bottomnav .tab.active .cnt{ background:rgba(255,255,255,.28); }
+  .bottomnav .tab--home i{ color:var(--ic-home, #f0a868); }
+}
+/* ไอคอนสีสันแยกตามหน้าที่ (เหมือนแถบเมนูบน) */
+.bottomnav .tab:nth-child(1){ --hue: var(--ic-dashboard); }
+.bottomnav .tab:nth-child(2){ --hue: var(--ic-entry); }
+.bottomnav .tab:nth-child(3){ --hue: var(--ic-records); }
+.bottomnav .tab:nth-child(4){ --hue: var(--ic-calendar); }
+.bottomnav .tab:nth-child(5){ --hue: var(--ic-home); }
+@media print{.bottomnav{display:none!important}}
+
 /* ===== Unified icon buttons (shared look across both modes) ===== */
 .icon-btn{
   display:inline-flex;align-items:center;justify-content:center;

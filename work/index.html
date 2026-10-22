@@ -109,7 +109,7 @@
     }
   </script>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased pb-24 md:pb-10 min-h-screen">
+<body class="bg-slate-100 text-slate-800 antialiased pb-24 md:pb-24 lg:pb-10 min-h-screen">
 
   <!-- เข้าใช้งานได้ทันที ไม่แสดงหน้าล็อกอิน -->
 
@@ -136,9 +136,9 @@
           <span id="connection-text" class="hidden sm:inline">Firebase เชื่อมต่อแล้ว</span>
         </div>
         
-        <button onclick="switchTab('form')" class="hidden md:flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
+        <button onclick="switchTab('form')" class="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg shadow-sm transition shrink-0" title="บันทึกปัญหาใหม่">
           <i class="fa-solid fa-plus"></i>
-          <span>บันทึกปัญหาใหม่</span>
+          <span class="hidden sm:inline">บันทึกปัญหาใหม่</span>
         </button>
       </div>
     </div>
@@ -915,6 +915,15 @@
     </section>
 
   </main>
+
+  <!-- ================= BOTTOM NAV (มือถือ/แท็บเล็ต ≤1023px) ================= -->
+  <nav class="bottomnav" aria-label="เมนูด่วน">
+    <button type="button" class="tab active" data-tab="dashboard"><i class="fa-solid fa-gauge-high"></i><span>แดชบอร์ด</span></button>
+    <button type="button" class="tab" data-tab="form"><i class="fa-solid fa-pen-to-square"></i><span>ลงข้อมูล</span></button>
+    <button type="button" class="tab" data-tab="records"><i class="fa-solid fa-list-check"></i><span class="lbl">รายการ <span class="cnt" id="badge-count-mobile">0</span></span></button>
+    <button type="button" class="tab" data-tab="calendar"><i class="fa-solid fa-calendar-days"></i><span>ปฏิทิน</span></button>
+    <a class="tab tab--home" href="../index.html" title="กลับหน้าหลักเลือกโหมด"><i class="fa-solid fa-house-chimney"></i><span>หน้าหลัก</span></a>
+  </nav>
 
   <!-- ================= MODAL: VIEW FULL REPORT DETAILS ================= -->
   <div id="modal-view-detail" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
