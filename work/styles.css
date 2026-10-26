@@ -62,6 +62,33 @@ body {
   background-color: #f0fdf4;
 }
 
+
+/* ===== Calendar mini incident details ===== */
+.calendar-date-head{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:22px}
+.cal-today-label{font-size:9px;font-weight:700;color:#059669;white-space:nowrap}
+.calendar-summary-badges{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:4px}
+.cal-mini-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 5px;border-radius:999px;font-size:8px;line-height:1.1;font-weight:800;color:#fff;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+.cal-mini-badge i{font-size:7px}
+.cal-mini-badge.internal{background:#ef4444}
+.cal-mini-badge.escaped{background:#f59e0b}
+.cal-mini-badge.total{background:#4f46e5}
+.calendar-mini-reports{display:flex;flex-direction:column;gap:3px;margin-top:4px;min-width:0}
+.calendar-mini-report{display:flex;flex-direction:column;gap:1px;padding:3px 4px;border-radius:6px;background:#f8fafc;border-left:3px solid #94a3b8;min-width:0;overflow:hidden}
+.calendar-mini-report.internal{border-left-color:#ef4444;background:#fff5f5}
+.calendar-mini-report.escaped{border-left-color:#f59e0b;background:#fffbeb}
+.cal-mc{display:flex;align-items:center;gap:3px;font-size:8px;line-height:1.15;font-weight:900;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-mc i{font-size:7px;color:#4f46e5;flex:0 0 auto}
+.cal-topic{font-size:8px;line-height:1.15;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-more{font-size:8px;font-weight:800;color:#4f46e5;text-align:center;padding-top:1px}
+@media (max-width:640px){
+  .calendar-day{min-height:92px;padding:5px 4px!important}
+  .cal-mini-badge{font-size:7px;padding:2px 4px}
+  .cal-mc{font-size:7px}
+  .cal-topic{font-size:7px}
+  .calendar-mini-report{padding:2px 3px}
+  .cal-more{font-size:7px}
+}
+
 /* =========================================================
    A4 PRINT & PDF STYLES (Incident Report with Photos)
    A4 = 210 x 297 mm. Page margin is 0 so no browser header/footer
@@ -870,3 +897,110 @@ header .home-return-btn i {
 .icon-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
 @media (max-width:400px){.icon-btn{width:40px;height:40px;min-width:40px;border-radius:12px}}
 @media (prefers-reduced-motion:reduce){.icon-btn{transition:none}.icon-btn:hover{transform:none}}
+
+/* =========================================================
+   PREMIUM PRO — COLOR & READABILITY OVERRIDE v4.1
+   เน้นไอคอนมีสีสัน + ตัวหนังสือคมชัดทุกพื้นหลัง
+   ========================================================= */
+:root{
+  --pro-text:#0f172a;
+  --pro-muted:#334155;
+  --pro-blue:#2563eb;
+  --pro-cyan:#0891b2;
+  --pro-violet:#7c3aed;
+  --pro-green:#059669;
+  --pro-amber:#d97706;
+  --pro-red:#dc2626;
+  --pro-pink:#db2777;
+}
+body{color:var(--pro-text);font-weight:400}
+label,.label,.field-label,.form-label,small,.hint,.muted{color:#334155}
+input,select,textarea{color:#0f172a!important;background:#fff!important;border-color:#cbd5e1!important;font-weight:500}
+input::placeholder,textarea::placeholder{color:#64748b!important;opacity:1}
+input:focus,select:focus,textarea:focus{border-color:#2563eb!important;box-shadow:0 0 0 3px rgba(37,99,235,.14)!important;outline:none}
+
+/* Navigation: colorful icons, strong readable text */
+.navrow .tab,.bottomnav .tab{color:#1e293b!important;font-weight:600!important}
+.navrow .tab i,.bottomnav .tab i{font-size:1.12em!important;font-weight:900!important}
+.navrow .tab:nth-child(1) i,.bottomnav .tab:nth-child(1) i{color:#2563eb!important}
+.navrow .tab:nth-child(2) i,.bottomnav .tab:nth-child(2) i{color:#059669!important}
+.navrow .tab:nth-child(3) i,.bottomnav .tab:nth-child(3) i{color:#d97706!important}
+.navrow .tab:nth-child(4) i,.bottomnav .tab:nth-child(4) i{color:#7c3aed!important}
+.navrow .tab:nth-child(5) i,.bottomnav .tab:nth-child(5) i{color:#db2777!important}
+.navrow .tab.active,.bottomnav .tab.active{color:#0f172a!important;background:rgba(37,99,235,.09)!important}
+.navrow .tab.active i,.bottomnav .tab.active i{filter:drop-shadow(0 2px 5px rgba(37,99,235,.28))!important}
+
+/* Headings */
+h1,h2,h3,h4,.panel h2,.panel h3{color:#0f172a!important;font-weight:700!important}
+.panel h2 i,.panel h3 i{color:#2563eb!important;filter:drop-shadow(0 2px 3px rgba(37,99,235,.25))!important}
+
+/* Buttons: readable text + colorful icons */
+.btn{font-weight:600!important;color:#1e293b}
+.btn.primary{color:#fff!important}
+.btn.primary i{color:#fde68a!important}
+.btn.white{color:#1d4ed8!important;background:#fff!important;border-color:#bfdbfe!important}
+.btn.soft{color:#1e293b!important}
+.btn i{font-size:1.05em!important}
+.btn.soft i.fa-eye{color:#4f46e5!important}
+.btn.soft i.fa-pen,.btn i.fa-edit{color:#d97706!important}
+.btn.danger,.btn.danger *{color:#b91c1c!important}
+.btn.danger i,.btn i.fa-trash{color:#dc2626!important}
+.btn i.fa-download,.btn i.fa-file-export{color:#059669!important}
+.btn i.fa-print{color:#2563eb!important}
+.btn i.fa-calendar,.btn i.fa-calendar-alt{color:#db2777!important}
+.btn i.fa-chart-bar,.btn i.fa-chart-line{color:#7c3aed!important}
+.btn i.fa-plus,.btn i.fa-plus-circle{color:#059669!important}
+
+/* Stat/KPI icons */
+.stat i,.kpi-card i,.metric i{filter:drop-shadow(0 2px 4px rgba(15,23,42,.18))}
+.stat:nth-child(1) i,.kpi-card:nth-child(1) i{color:#2563eb!important}
+.stat:nth-child(2) i,.kpi-card:nth-child(2) i{color:#d97706!important}
+.stat:nth-child(3) i,.kpi-card:nth-child(3) i{color:#dc2626!important}
+.stat:nth-child(4) i,.kpi-card:nth-child(4) i{color:#059669!important}
+
+/* Badges/status */
+.badge,.status-badge{font-weight:700!important;letter-spacing:.01em}
+
+/* Tables / records */
+table th{color:#fff!important;font-weight:700!important}
+table td{color:#1e293b!important;font-weight:500}
+.record-card,.card,.panel{color:#1e293b}
+.record-card strong,.card strong{color:#0f172a!important}
+
+/* Colorful icon circles if present */
+.icon-circle,.icon-box{box-shadow:0 6px 16px rgba(15,23,42,.12)!important}
+.icon-circle i,.icon-box i{filter:drop-shadow(0 1px 2px rgba(15,23,42,.2))}
+
+/* Bottom navigation must remain readable on mobile */
+.bottomnav{background:rgba(255,255,255,.97)!important;border-top:1px solid #dbe3ed!important;box-shadow:0 -8px 24px rgba(15,23,42,.10)!important}
+.bottomnav .tab span,.bottomnav .tab label{color:#334155!important;font-weight:600!important}
+.bottomnav .tab.active span,.bottomnav .tab.active label{color:#1d4ed8!important;font-weight:700!important}
+
+/* Dark enough text on colored surfaces */
+.gradient-card,.hero-card,.machine-home-btn,.btn.primary{ text-shadow:0 1px 1px rgba(0,0,0,.12) }
+.machine-home-btn,.machine-home-btn *{color:#fff!important}
+.machine-home-btn i{color:#fde68a!important}
+
+@media(max-width:640px){
+  body{font-size:14px}
+  h1{font-size:1.45rem!important}h2{font-size:1.18rem!important}h3{font-size:1.05rem!important}
+  .navrow .tab,.bottomnav .tab{font-size:12px!important}
+  .navrow .tab i,.bottomnav .tab i{font-size:18px!important}
+  input,select,textarea{font-size:16px!important} /* ป้องกัน iOS zoom และอ่านง่าย */
+}
+
+/* Premium Pro Header Readability Fix */
+header h1,
+header h1.text-lg,
+header h1.text-xl,
+header p {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
+header h1 {
+  font-weight: 800 !important;
+}
+header p {
+  color: #ffffff !important;
+  opacity: .96 !important;
+}

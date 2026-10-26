@@ -1967,21 +1967,34 @@ function renderCalendar() {
     cell.onclick = () => selectCalendarDate(dateStr, incidentData?.list || []);
 
     let badgeHtml = '';
+    let miniReportsHtml = '';
     if (incidentData) {
+      const shownReports = incidentData.list.slice(0, 3);
       badgeHtml = `
-        <div class="flex flex-col sm:flex-row items-center gap-1 mt-1">
-          ${incidentData.internal > 0 ? `<span class="bg-red-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold" title="${incidentData.internal} ปัญหาภายใน">${incidentData.internal}</span>` : ''}
-          ${incidentData.escaped > 0 ? `<span class="bg-amber-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold" title="${incidentData.escaped} งานหลุด">${incidentData.escaped}</span>` : ''}
+        <div class="calendar-summary-badges" aria-label="สรุปจำนวนรายงาน">
+          ${incidentData.internal > 0 ? `<span class="cal-mini-badge internal" title="${incidentData.internal} ปัญหาภายใน"><i class="fa-solid fa-screwdriver-wrench"></i>${incidentData.internal}</span>` : ''}
+          ${incidentData.escaped > 0 ? `<span class="cal-mini-badge escaped" title="${incidentData.escaped} งานหลุด"><i class="fa-solid fa-truck-fast"></i>${incidentData.escaped}</span>` : ''}
+          <span class="cal-mini-badge total" title="${incidentData.list.length} รายงานทั้งหมด"><i class="fa-solid fa-list-check"></i>${incidentData.list.length}</span>
         </div>
       `;
+      miniReportsHtml = `<div class="calendar-mini-reports">${shownReports.map(r => {
+        const mc = r.machineName || r.machine || r.mc || 'ไม่ระบุ MC';
+        const title = r.title || r.problemCategory || r.description || 'รายงานปัญหา';
+        const typeClass = r.reportType === 'internal' ? 'internal' : 'escaped';
+        return `<div class="calendar-mini-report ${typeClass}" title="${escapeHtml(`${mc} · ${title}`)}">
+          <span class="cal-mc"><i class="fa-solid fa-microchip"></i>${escapeHtml(mc)}</span>
+          <span class="cal-topic">${escapeHtml(title)}</span>
+        </div>`;
+      }).join('')}${incidentData.list.length > 3 ? `<div class="cal-more">+${incidentData.list.length - 3} รายการ</div>` : ''}</div>`;
     }
 
     cell.innerHTML = `
-      <div class="flex items-center justify-between">
+      <div class="calendar-date-head">
         <span class="${isToday ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[11px]' : ''}">${day}</span>
-        ${isToday ? '<span class="text-[9px] text-emerald-600 font-normal hidden sm:inline">วันนี้</span>' : ''}
+        ${isToday ? '<span class="cal-today-label">วันนี้</span>' : ''}
       </div>
       ${badgeHtml}
+      ${miniReportsHtml}
     `;
 
     grid.appendChild(cell);
