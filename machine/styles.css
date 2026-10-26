@@ -210,3 +210,77 @@ body.pdf-busy > header, body.pdf-busy > main, body.pdf-busy > nav.bottomnav { di
 .icon-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
 @media (max-width:400px){.icon-btn{width:40px;height:40px;min-width:40px;border-radius:12px}}
 @media (prefers-reduced-motion:reduce){.icon-btn{transition:none}.icon-btn:hover{transform:none}}
+
+/* ---- Machine matrix: selected machine + records filter bar ---- */
+.machine-tile.selected,
+.machine-tile.selected:hover{
+  border-color:#2563eb;
+  background:#dbeafe;
+  color:#1d4ed8;
+  box-shadow:0 0 0 3px rgba(37,99,235,.28), 0 4px 12px rgba(37,99,235,.22);
+}
+.records-filter-bar{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+  margin-bottom:12px;padding:10px 12px;
+  border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;
+}
+.records-filter-bar.hidden{display:none}
+.records-filter-chip{
+  display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;
+  font-size:13px;font-weight:600;color:#1d4ed8;min-width:0;
+}
+.records-filter-chip i{color:#2563eb}
+.records-filter-chip b{font-weight:700}
+@media (max-width:600px){
+  .records-filter-bar{padding:9px 10px}
+  .records-filter-chip{font-size:12px}
+}
+
+/* ---- Calendar: report days ---- */
+#recordsListPanel{scroll-margin-top:84px}
+.calendar-panel{overflow:hidden}
+.calendar-nav{display:flex;align-items:center;gap:8px}
+.calendar-label{font-size:15px;font-weight:700;color:#1e3a8a}
+.calendar-weekdays{
+  display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;
+  margin-bottom:6px;font-size:11px;font-weight:700;color:#64748b;text-align:center;
+}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal-day{
+  position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:2px;
+  min-height:56px;padding:5px 6px;border:1px solid #e2e8f0;border-radius:10px;
+  background:#f8fafc;color:#475569;font:inherit;font-size:12px;font-weight:600;
+  transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease,background .12s ease;
+}
+.cal-day.out{background:#fff;border-style:dashed;color:#cbd5e1}
+.cal-day.has-report{cursor:pointer}
+.cal-day:not(.out):hover{transform:translateY(-1px);box-shadow:0 5px 12px rgba(15,23,42,.12)}
+.cal-day.open{background:#fff7ed;border-color:#fdba74;color:#9a3412}
+.cal-day.critical{background:#fee2e2;border-color:#fca5a5;color:#991b1b}
+.cal-day.done{background:#dcfce7;border-color:#86efac;color:#166534}
+.cal-day.today{outline:2px solid #2563eb;outline-offset:-2px}
+.cal-day.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.3)}
+.cal-count{
+  align-self:flex-end;font-size:10px;font-weight:700;line-height:1;
+  padding:2px 6px;border-radius:999px;background:rgba(255,255,255,.82);
+}
+.calendar-legend{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;
+  margin-top:12px;font-size:11px;color:#64748b;
+}
+.calendar-legend .dot{
+  display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;
+}
+.calendar-legend .dot.critical{background:#ef4444}
+.calendar-legend .dot.open{background:#f97316}
+.calendar-legend .dot.done{background:#22c55e}
+.calendar-legend .dot.count{background:#2563eb}
+@media (max-width:600px){
+  .calendar-grid,.calendar-weekdays{gap:4px}
+  .cal-day{min-height:46px;padding:4px;font-size:11px;border-radius:9px}
+  .calendar-label{font-size:14px}
+  .cal-count{font-size:9px;padding:1px 5px}
+}
+@media print{
+  #calendarPanel{display:none !important}
+}

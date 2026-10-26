@@ -238,6 +238,7 @@ let chartRatioInstance = null;
 let chartMachineInstance = null;
 let chartCategoryInstance = null;
 let chartTrendInstance = null;
+let trendRange = 14;
 let firestoreReportsUnsubscribe = null;
 let flushingPendingSync = false;
 const PENDING_SYNC_KEY = 'router_pending_sync_ids';
@@ -1124,6 +1125,7 @@ function applyDashboardFilter() {
   updateDashboardKPIs(reports);
   renderDashboardCharts(reports);
   renderDashboardEscapedAlerts(reports);
+  renderDashboardInternalAlerts(reports);
 }
 
 function updateDashboardKPIs(reports) {
@@ -1404,45 +1406,235 @@ function renderDashboardCharts(reports) {
     }
   }
 
-  // Chart 4: Incident Trend Over Time (Last 10 days)
-  const dateCounts = {};
+  // Chart 4: Incident Trend Over Time — continuous day-by-day trend
+  const trendDates = reports
+    .map(r => String(r.reportDate || '').slice(0, 10))
+    .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  const todayKey = (() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  })();
+  const endKey = trendDates.length ? trendDates.sort().slice(-1)[0] : todayKey;
+  const endDateObj = new Date(Number(endKey.slice(0, 4)), Number(endKey.slice(5, 7)) - 1, Number(endKey.slice(8, 10)));
+  const days = [];
+  for (let i = trendRange - 1; i >= 0; i--) {
+    const d = new Date(endDateObj);
+    d.setDate(d.getDate() - i);
+    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  const dayKeySet = new Set(days);
+  const dayStats = {};
+  days.forEach(ds => { dayStats[ds] = { internal: 0, escaped: 0 }; });
   reports.forEach(r => {
-    if (r.reportDate) {
-      dateCounts[r.reportDate] = (dateCounts[r.reportDate] || 0) + 1;
-    }
+    const ds = String(r.reportDate || '').slice(0, 10);
+    if (!dayKeySet.has(ds)) return;
+    if (r.reportType === 'internal') dayStats[ds].internal++;
+    else if (r.reportType === 'escaped') dayStats[ds].escaped++;
   });
+  const internalSeries = days.map(ds => dayStats[ds].internal);
+  const escapedSeries = days.map(ds => dayStats[ds].escaped);
+  const totalSeries = days.map(ds => dayStats[ds].internal + dayStats[ds].escaped);
+  const trendTotal = totalSeries.reduce((sum, v) => sum + v, 0);
+  const daysWithIssues = totalSeries.filter(v => v > 0).length;
+  const peakValue = totalSeries.length ? Math.max(...totalSeries) : 0;
+  const peakIndex = peakValue > 0 ? totalSeries.lastIndexOf(peakValue) : -1;
+  const thaiDay = (iso, short) => {
+    const dt = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+    return short
+      ? dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+      : dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+  const rangeLabel = days.length > 1
+    ? `${thaiDay(days[0], true)} – ${thaiDay(days[days.length - 1], true)}`
+    : thaiDay(days[0], true);
+  const note = document.getElementById('trend-range-note');
+  if (note) note.textContent = `${rangeLabel} · ${days.length} วันล่าสุดของข้อมูล`;
 
-  const sortedDates = Object.keys(dateCounts).sort().slice(-10);
-  const trendLabels = sortedDates.length > 0 ? sortedDates : ['ไม่มีข้อมูล'];
-  const trendData = sortedDates.length > 0 ? sortedDates.map(d => dateCounts[d]) : [0];
+  const trendSummary = document.getElementById('chart-trend-summary');
+  if (trendSummary) {
+    trendSummary.innerHTML = `
+      <div class="p-2 rounded-lg bg-slate-50 border border-slate-100">
+        <span class="block text-[10px] text-slate-400">รายงานในช่วง</span>
+        <span class="text-base font-bold text-slate-800">${trendTotal}</span>
+        <span class="text-[10px] text-slate-400">รายการ</span>
+      </div>
+      <div class="p-2 rounded-lg bg-red-50/70 border border-red-100">
+        <span class="block text-[10px] text-red-400">วันที่มีปัญหา</span>
+        <span class="text-base font-bold text-red-600">${daysWithIssues}</span>
+        <span class="text-[10px] text-red-400">วัน</span>
+      </div>
+      <div class="p-2 rounded-lg bg-emerald-50/70 border border-emerald-100">
+        <span class="block text-[10px] text-emerald-500">วันที่พบมากสุด</span>
+        <span class="text-base font-bold text-emerald-700">${peakValue}</span>
+        <span class="block text-[10px] text-emerald-600">${peakIndex >= 0 ? thaiDay(days[peakIndex], true) : 'ไม่มีข้อมูล'}</span>
+      </div>`;
+  }
+
+  const trendRank = document.getElementById('chart-trend-rank');
+  if (trendRank) {
+    const rows = days
+      .map(ds => ({ ds, ...dayStats[ds] }))
+      .filter(r => r.internal + r.escaped > 0)
+      .reverse();
+    if (rows.length === 0) {
+      trendRank.innerHTML = `<p class="text-xs text-slate-400 text-center py-3">ไม่มีรายงานในช่วงเวลานี้</p>`;
+    } else {
+      const maxRow = Math.max(...rows.map(r => r.internal + r.escaped), 1);
+      trendRank.innerHTML = rows.map(r => {
+        const total = r.internal + r.escaped;
+        const pct = Math.max(6, Math.round((total / maxRow) * 100));
+        return `<div class="rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-1.5">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-xs text-slate-700">${thaiDay(r.ds, true)}</span>
+            <span class="flex items-center gap-2.5 text-[11px]">
+              <span class="text-red-600 font-semibold">ภายใน ${r.internal}</span>
+              <span class="text-amber-600 font-semibold">หลุด ${r.escaped}</span>
+              <span class="font-bold text-slate-800">รวม ${total}</span>
+            </span>
+          </div>
+          <div class="mt-1 h-1 rounded-full bg-slate-200 overflow-hidden"><span class="block h-full bg-emerald-500" style="width:${pct}%"></span></div>
+        </div>`;
+      }).join('');
+    }
+  }
 
   const ctxTrend = document.getElementById('chart-trend').getContext('2d');
   if (chartTrendInstance) chartTrendInstance.destroy();
 
   chartTrendInstance = new Chart(ctxTrend, {
     type: 'line',
-    plugins: [valueLabelPlugin],
     data: {
-      labels: trendLabels,
-      datasets: [{
-        label: 'จำนวนรายงานต่อวัน',
-        data: trendData,
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        fill: true,
-        tension: 0.3,
-        pointBackgroundColor: '#10b981'
-      }]
+      labels: days,
+      datasets: [
+        {
+          label: 'ปัญหาภายใน',
+          data: internalSeries,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.10)',
+          fill: true,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#ef4444',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1
+        },
+        {
+          label: 'งานหลุด',
+          data: escapedSeries,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.12)',
+          fill: true,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#f59e0b',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1
+        },
+        {
+          label: 'รวม',
+          data: totalSeries,
+          borderColor: '#64748b',
+          borderDash: [5, 4],
+          fill: false,
+          tension: 0.35,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointBackgroundColor: '#64748b'
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 6 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => thaiDay(days[items[0].dataIndex]),
+            label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} รายการ`,
+            footer: (items) => `รวมทั้งวัน ${totalSeries[items[0].dataIndex]} รายการ`
+          }
+        }
+      },
       scales: {
-        y: { beginAtZero: true, ticks: { stepSize: 1 } },
-        x: { ticks: { font: { size: 10, family: 'Prompt' } } }
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1, precision: 0, font: { family: 'Prompt' } },
+          grid: { color: 'rgba(148, 163, 184, 0.18)' }
+        },
+        x: {
+          ticks: {
+            font: { size: 10, family: 'Prompt' },
+            color: '#475569',
+            autoSkip: true,
+            maxTicksLimit: trendRange <= 7 ? 7 : trendRange <= 14 ? 7 : 10,
+            maxRotation: 0,
+            callback(value) {
+              const iso = days[value];
+              return iso ? thaiDay(iso, true) : '';
+            }
+          },
+          grid: { display: false }
+        }
       }
     }
+  });
+}
+function setTrendRange(value) {
+  const n = Number(value);
+  trendRange = [7, 14, 30].includes(n) ? n : 14;
+  const sel = document.getElementById('trend-range');
+  if (sel) sel.value = String(trendRange);
+  applyDashboardFilter();
+}
+
+function renderDashboardInternalAlerts(reports) {
+  const container = document.getElementById('dashboard-internal-list');
+  if (!container) return;
+
+  const internal = reports.filter(r => r.reportType === 'internal').slice(0, 5);
+  if (internal.length === 0) {
+    container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">ไม่มีรายงานปัญหาภายในช่วงเวลานี้</p>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  internal.forEach(item => {
+    const el = document.createElement('div');
+    el.className = "p-2.5 rounded-xl border border-red-200 bg-red-50/50 hover:bg-red-100/50 transition cursor-pointer flex items-center justify-between";
+    el.onclick = () => viewReportDetail(item.id);
+    const severity = item.severity || 'ปานกลาง';
+    const severityClass = severity.includes('วิกฤต')
+      ? 'bg-red-200 text-red-900'
+      : severity.includes('สูง')
+        ? 'bg-orange-200 text-orange-900'
+        : 'bg-slate-200 text-slate-700';
+    el.innerHTML = `
+      <div class="flex items-center space-x-2.5 overflow-hidden">
+        <div class="w-7 h-7 rounded-lg bg-red-200 text-red-800 flex items-center justify-center flex-shrink-0 text-xs">
+          <i class="fa-solid fa-wrench"></i>
+        </div>
+        <div class="truncate">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-bold text-slate-800">${escapeHtml(item.machineName)}</span>
+            <span class="text-[10px] ${severityClass} px-1.5 py-0.2 rounded font-medium">${escapeHtml(severity)}</span>
+          </div>
+          <p class="text-[11px] text-slate-600 truncate">${escapeHtml(item.title)}</p>
+        </div>
+      </div>
+      <div class="text-right flex-shrink-0 ml-2">
+        <span class="text-[10px] text-slate-400 block">${item.reportDate || ''}</span>
+        <span class="text-xs font-bold text-red-600">${item.defectQty || 0} NG</span>
+      </div>
+    `;
+    container.appendChild(el);
   });
 }
 
