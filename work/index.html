@@ -111,7 +111,19 @@
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased pb-24 md:pb-24 lg:pb-10 min-h-screen">
 
-  <!-- เข้าใช้งานได้ทันที ไม่แสดงหน้าล็อกอิน -->
+  <!-- =========================================================
+       AUTH GATE — ล็อกอินก่อนเข้าทุกหน้า
+       ถ้าไม่มีข้อมูลผู้ใช้ใน localStorage → พาไปหน้า login.html
+       ========================================================= -->
+  <script>
+    (function () {
+      'use strict';
+      var stored = localStorage.getItem('router_user_role');
+      if (!stored) {
+        window.location.href = '../login.html';
+      }
+    })();
+  </script>
 
   <!-- ================= TOP HEADER ================= -->
   <header class="bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-950 text-white shadow-lg sticky top-0 z-40">
