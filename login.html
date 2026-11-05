@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+<!-- =========================================================
+     NO-ZOOM GUARD — ล็อกการขยายซูมทุกรูปแบบ
+     (พินช์บนมือถือ / ดับเบิลทัป / Ctrl+ล้อเมาส์ / Ctrl+เคีย์บอร์ด)
+     การเลื่อนหน้าและการกดปุ่มยังทำงานได้ตามปกติ
+     ========================================================= -->
+<script>
+(function () {
+  'use strict';
+
+  var VIEWPORT = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+  var ZOOM_KEYS = ['+', '=', '-', '_', '0', 'Add', 'Subtract', 'Equal'];
+  var lastTouchEnd = 0;
+
+  // iOS Safari: กันการซูมด้วยท่ากระทั่ง (pinch-zoom)
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (type) {
+    document.addEventListener(type, function (e) { e.preventDefault(); }, { passive: false });
+  });
+
+  // กันการซูมด้วย Ctrl/⌘ + เลื่อนล้อเมาส์ (เดสก์ท็อป)
+  document.addEventListener('wheel', function (e) {
+    if (e.ctrlKey || e.metaKey) e.preventDefault();
+  }, { passive: false });
+
+  // กันการซูมด้วยคีย์บอร์ด (Ctrl/⌘ + + / - / 0)
+  document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (ZOOM_KEYS.indexOf(e.key) !== -1) e.preventDefault();
+  }, { passive: false });
+
+  // กันการซูมด้วยการแตะสองครั้ง (เบราว์เซอร์รุ่นเก่า) — ไม่กระทบการกดปุ่มซ้ำ
+  document.addEventListener('touchend', function (e) {
+    var now = Date.now();
+    if (now - lastTouchEnd <= 320) {
+      var t = e.changedTouches && e.changedTouches[0];
+      var el = t && t.target;
+      var interactive = el && el.closest && el.closest('a,button,input,select,textarea,label,[role="button"]');
+      if (!interactive) e.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+
+  // บังคับระดับการขยาย = 1 เสมอ (กันเบราว์เซอร์ที่พยายามคืนค่าซูมเอง)
+  function lockScale() {
+    var vp = document.querySelector('meta[name="viewport"]');
+    if (!vp) {
+      vp = document.createElement('meta');
+      vp.setAttribute('name', 'viewport');
+      document.head.appendChild(vp);
+    }
+    if (vp.getAttribute('content') !== VIEWPORT) vp.setAttribute('content', VIEWPORT);
+  }
+  lockScale();
+  window.addEventListener('resize', lockScale);
+  window.addEventListener('orientationchange', lockScale);
+})();
+</script>
+<meta name="theme-color" content="#1e3a8a">
+<meta name="description" content="ระบบรายงานปัญหาแผนก ROUTER - เข้าสู่ระบบ">
+<meta name="color-scheme" content="light">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ROUTER Login">
+<meta name="format-detection" content="telephone=no">
+<title>ROUTER เข้าสู่ระบบ</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap">
+
+<!-- Firebase Compat Libraries for Authentication -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+<!-- SweetAlert2 for modern alerts -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Firebase Config (shared across the platform) -->
+<script>
+  window.firebaseConfig = {
+    apiKey: "AIzaSyAAiLksWnWi5KYc2wPqbuufG8_olFMGZmg",
+    authDomain: "system-routerf2.firebaseapp.com",
+    databaseURL: "https://system-routerf2-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "system-routerf2",
+    storageBucket: "system-routerf2.firebasestorage.app",
+    messagingSenderId: "17102878285",
+    appId: "1:17102878285:web:4378f5d85bba3c56d44e04",
+    measurementId: "G-E212Z5C2YH"
+  };
+</script>
+<script>
+  // Initialize Firebase
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(window.firebaseConfig);
+    }
+    console.log('Firebase initialized for login page');
+  } catch (err) {
+    console.error('Firebase init error:', err);
+  }
+</script>
+
+<style>
+/* =========================================================
+   ROUTER LOGIN PAGE — สะอาด ทัดสมัย
+   ========================================================= */
+
+:root{
+  color-scheme: light;
+
+  --bg:        #eef2f7;
+  --surface:   #ffffff;
+  --line:      #e4e9f0;
+  --txt:       #0f172a;
+  --txt-2:     #475569;
+  --txt-3:     #64748b;
+
+  --m1:      #2563eb;
+  --m1-ico:  #f59e0b;
+  --m2:      #7c3aed;
+  --m2-ico:  #10b981;
+
+  --r: 18px;
+
+  --font: "Prompt", "Plus Jakarta Sans", system-ui, -apple-system,
+          "Segoe UI", Tahoma, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html{
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+html, body{
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+html, body, *, *::before, *::after{
+  touch-action: pan-x pan-y;
+}
+
+body{
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--font);
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--txt-2);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* พื้นหลังบาง ๆ ให้มีมิติ */
+body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(15,23,42,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,23,42,.022) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 55% at 50% 22%, #000 20%, transparent 100%);
+          mask-image: radial-gradient(ellipse 90% 55% at 50% 22%, #000 20%, transparent 100%);
+}
+
+/* ---------- inline icon system ---------- */
+.ico{
+  width: 1em; height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+  display: inline-block;
+  vertical-align: middle;
+}
+.sprite{ position:absolute; width:0; height:0; overflow:hidden; }
+
+/* ---------- Centered Card ---------- */
+.auth-card{
+  position: relative;
+  z-index: 5;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: clamp(32px, 6vw, 48px) clamp(20px, 4vw, 32px);
+  text-align: center;
+}
+
+.auth-card .brand{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.auth-card .brand-mark{
+  display: grid;
+  place-items: center;
+  width: 56px; height: 56px;
+  border-radius: 18px;
+  color: #fff;
+  background: var(--m1);
+  box-shadow: 0 12px 24px -10px rgba(37,99,235,.85);
+  margin-bottom: 12px;
+}
+
+.auth-card .brand-mark .ico{ width: 32px; height: 32px; }
+
+.auth-card .brand-text{
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.auth-card .brand-text strong{
+  font-size: 20px; font-weight: 700; letter-spacing: .1em;
+  color: var(--txt);
+}
+
+.auth-card .brand-text em{
+  font-style: normal;
+  font-size: 11px; font-weight: 500; letter-spacing: .08em;
+  color: var(--txt-3); text-transform: uppercase;
+}
+
+.auth-card h1{
+  margin: 0 0 24px;
+  font-size: clamp(24px, 5vw, 32px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  color: var(--txt);
+}
+
+.auth-card p{
+  margin: 0 0 32px;
+  font-size: clamp(13px, 1.5vw, 14px);
+  font-weight: 300;
+  color: var(--txt-3);
+  overflow-wrap: break-word;
+}
+
+/* ---------- Login Form ---------- */
+.auth-form{
+  display: grid;
+  gap: 20px;
+}
+
+.auth-form .form-group{
+  text-align: left;
+}
+
+.auth-form .form-label{
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt);
+}
+
+.auth-form .form-control{
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: var(--font);
+  font-weight: 400;
+  color: var(--txt);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.auth-form .form-control:focus{
+  outline: none;
+  border-color: var(--m1);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+
+.auth-form .form-control:disabled{
+  background: var(--line);
+  color: var(--txt-3);
+  cursor: not-allowed;
+}
+
+.auth-form .checkbox-wrap{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--txt-2);
+}
+
+.auth-form .checkbox-wrap input{
+  margin-right: 6px;
+}
+
+/* ---------- Action Buttons ---------- */
+.auth-actions{
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.auth-btn{
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s, background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.auth-btn:focus-visible{
+  outline: 3px solid rgba(15,23,42,.55);
+  outline-offset: 3px;
+  border-radius: var(--r);
+}
+
+.auth-btn:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px -10px rgba(37,99,235,.4);
+}
+
+.auth-btn:active{
+  transform: translateY(0);
+}
+
+.auth-btn-primary{
+  background: var(--m1);
+  color: #fff;
+  box-shadow: 0 10px 20px -12px rgba(2,6,23,.55);
+}
+
+.auth-btn-primary:hover{
+  background: #1d4ed8;
+  box-shadow: 0 20px 28px -14px rgba(37,99,235,.6);
+}
+
+.auth-btn-secondary{
+  background: var(--surface);
+  color: var(--txt);
+  border: 1px solid var(--line);
+}
+
+.auth-btn-secondary:hover{
+  background: var(--line);
+}
+
+/* ---------- Role Selection ---------- */
+.auth-role{
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.auth-role h3{
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--txt);
+}
+
+.auth-role-list{
+  display: grid;
+  gap: 12px;
+}
+
+.auth-role-item{
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  text-align: left;
+}
+
+.auth-role-item input{
+  margin-right: 8px;
+  accent-color: var(--m1);
+}
+
+.auth-role-item:hover{
+  border-color: var(--m1);
+  background: rgba(37,99,235,.04);
+}
+
+.auth-role-item.selected{
+  border-color: var(--m1);
+  background: rgba(37,99,235,.08);
+}
+
+/* ---------- Error/Support ---------- */
+.auth-error{
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  background: rgba(239,68,68,.1);
+  border: 1px solid rgba(239,68,68,.3);
+  border-radius: var(--r);
+  font-size: 13px;
+  color: #dc2626;
+  display: none;
+}
+
+.auth-error.visible{
+  display: block;
+}
+
+/* ---------- Reduced Motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  .auth-btn{ transition: none; }
+}
+
+/* ---------- Print ---------- */
+@media print{
+  html, body{ background: #fff !important; color: #0f172a !important; }
+  body::before{ display: none; }
+  .auth-card{ margin: 0; padding: 20px; }
+}
+
+/* ---------- System approval notice ---------- */
+.system-approval-notice{
+  display:flex; align-items:flex-start; gap:12px;
+  margin:0 0 24px; padding:14px 16px;
+  text-align:left; border:1px solid #f5d48a; border-radius:14px;
+  background:#fff8e7; color:#854d0e;
+  box-shadow:0 6px 18px rgba(180, 120, 20, .08);
+}
+.system-approval-notice .notice-icon{
+  display:grid; place-items:center; flex:0 0 28px; width:28px; height:28px;
+  border-radius:50%; background:#fef0c7; color:#b45309; font-weight:700;
+}
+.system-approval-notice strong{display:block; margin:0 0 3px; font-size:14px; font-weight:700; color:#78350f;}
+.system-approval-notice span{display:block; font-size:12px; line-height:1.55; color:#92400e;}
+
+</style>
+</head>
+
+<body>
+
+<!-- ================= AUTH CARD ================= -->
+<div class="auth-card">
+  <a class="brand" href="./index.html" aria-label="ROUTER — เข้าสู่ระบบ Admin">
+    <span class="brand-mark"><svg class="ico" aria-hidden="true"><use href="#i-router" xlink:href="#i-router"></use></svg></span>
+    <span class="brand-text">
+      <strong>ROUTER</strong>
+      <em>Problem Reporting</em>
+    </span>
+  </a>
+
+  <h1>เข้าสู่ระบบ</h1>
+
+  <!-- แจ้งสถานะการอนุมัติเปิดใช้งานระบบ -->
+  <div class="system-approval-notice" role="status" aria-live="polite">
+    <div class="notice-icon" aria-hidden="true">!</div>
+    <div>
+      <strong>ระบบยังไม่ได้รับอนุญาตให้ใช้งาน</strong>
+      <span>ขณะนี้ระบบอยู่ระหว่างรอการอนุมัติเปิดใช้งาน กรุณารอประกาศอนุมัติก่อนเริ่มใช้งาน</span>
+    </div>
+  </div>
+
+  <p>เข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
+
+  <!-- ================= LOGIN FORM ================= -->
+  <form class="auth-form" id="loginForm" novalidate>
+    <div class="form-group">
+      <label class="form-label" for="username">ชื่อผู้ใช้</label>
+      <input type="text" class="form-control" id="username" placeholder="ระบุชื่อผู้ใช้ Admin" required>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="password">รหัสผ่าน</label>
+      <input type="password" class="form-control" id="password" placeholder="กรอกรหัสผ่าน" required>
+    </div>
+
+    <div class="form-group checkbox-wrap">
+      <div>
+        <input type="checkbox" id="rememberMe" checked>
+        <span>จดจำการเข้าสู่ระบบ</span>
+      </div>
+    </div>
+
+    <button type="submit" class="auth-btn auth-btn-primary" id="loginBtn">
+      เข้าสู่ระบบ
+    </button>
+  </form>
+
+  <!-- ================= ERROR MESSAGE ================= -->
+  <div class="auth-error" id="authError" role="alert"></div>
+</div>
+
+<!-- ================= FIREBASE & APP SCRIPTS ================= -->
+<script>
+/* =========================================================
+   LOGIN PAGE SCRIPT — Firebase Authentication Integration
+   ========================================================= */
+
+// ระบบเข้าสู่ระบบแบบบัญชีเดียว: Admin เท่านั้น
+async function handleLogin(e) {
+  e.preventDefault();
+
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const loginBtn = document.getElementById('loginBtn');
+  const authError = document.getElementById('authError');
+  const originalText = loginBtn.textContent;
+
+  authError.textContent = '';
+  authError.classList.remove('visible');
+  loginBtn.textContent = 'กำลังตรวจสอบ...';
+  loginBtn.disabled = true;
+
+  // อนุญาตเฉพาะชื่อผู้ใช้ Admin และรหัสผ่านที่กำหนดไว้
+  if (username !== 'Admin' || password !== 'St1910') {
+    authError.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+    authError.classList.add('visible');
+    loginBtn.textContent = originalText;
+    loginBtn.disabled = false;
+    return;
+  }
+
+  const adminSession = {
+    uid: 'local-admin',
+    username: 'Admin',
+    email: 'Admin',
+    displayName: 'Admin',
+    role: 'admin',
+    loginAt: new Date().toISOString()
+  };
+
+  try {
+    localStorage.setItem('router_user_role', JSON.stringify(adminSession));
+    await Swal.fire({
+      icon: 'success',
+      title: 'เข้าสู่ระบบสำเร็จ!',
+      text: 'ยินดีต้อนรับผู้ดูแลระบบ (Admin)',
+      timer: 1000,
+      showConfirmButton: false
+    });
+    window.location.href = 'index.html';
+  } catch (error) {
+    console.error('Login failed:', error);
+    authError.textContent = 'ไม่สามารถบันทึกสถานะเข้าสู่ระบบได้ กรุณาเปิดใช้งาน Local Storage';
+    authError.classList.add('visible');
+    loginBtn.textContent = originalText;
+    loginBtn.disabled = false;
+  }
+}
+
+// แปลง Firebase Auth error เป็นข้อความไทย + วิธีแก้
+function friendlyAuthError(error) {
+  'use strict';
+  const code = (error && error.code) || '';
+  const host = (location && location.host) || 'โดเมนปัจจุบัน';
+
+  const MESSAGES = {
+    // ===== สาเหตุที่พบบ่อยที่สุด "เมื่อขึ้นออนไลน์" =====
+    'auth/unauthorized-domain':
+      'โดเมน "' + host + '" ยังไม่ได้ลงทะเบียนใน Firebase ' +
+      '(วิธีแก้: Firebase Console → Authentication → Settings → Authorized domains → Add domain → ใส่ "' + host + '" → Save)',
+    'auth/operation-not-allowed':
+      'ยังไม่ได้เปิดใช้งาน Email/Password (วิธีแก้: Firebase Console → Authentication → Sign-in method → Email/Password → Enable)',
+    'auth/configuration-not-found':
+      'Firebase Authentication ยังไม่ถูกตั้งค่าในโปรเจกต์ (วิธีแก้: เปิดใช้งาน provider อย่างน้อยหนึ่งตัวใน Sign-in method ก่อน)',
+
+    // ===== ข้อมูลล็อกอินไม่ถูกต้อง =====
+    'auth/invalid-email': 'รูปแบบอีเมลไม่ถูกต้อง — กรอกอีเมลเต็ม เช่น name@gmail.com',
+    'auth/user-not-found': 'ไม่พบบัญชีนี้ในระบบ — ต้องสร้างผู้ใช้ที่ Authentication → Users ก่อน',
+    'auth/wrong-password': 'รหัสผ่านไม่ถูกต้อง กรุณาลองอีกครั้ง',
+    'auth/invalid-credential': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+    'auth/invalid-login-credentials': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+    'auth/user-disabled': 'บัญชีนี้ถูกระงับการใช้งาน',
+
+    // ===== ปัญหาการเชื่อมต่อ =====
+    'auth/network-request-failed': 'เชื่อมต่อ Firebase ไม่ได้ — ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่',
+    'auth/too-many-requests': 'พยายามหลายครั้งเกินไป กรุณารอ 1-2 นาทีแล้วลองใหม่',
+    'auth/internal-error': 'เกิดข้อผิดพลาดภายในของ Firebase กรุณาลองใหม่ภายหลัง',
+    'auth/api-key-not-valid': 'Firebase API Key ไม่ถูกต้องหรือถูกจำกัดโดเมน (ตรวจสอบการตั้งค่า API Key ใน Google Cloud Console)',
+    'auth/app-not-authorized': 'โดเมนนี้ไม่ได้รับอนุญาตให้ใช้ API Key นี้ (วิธีแก้: เพิ่มโดเมนใน Authorized domains หรือปรับ API restrictions)'
+  };
+
+  if (MESSAGES[code]) return MESSAGES[code] + ' [' + code + ']';
+
+  // Error อื่น ๆ: แสดงข้อความเดิมถ้ามี
+  return (error && error.message) || 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบข้อมูลให้ถูกต้อง';
+}
+
+// ฟังก์ชันสำหรับการล็อกอัพ
+function handleLogout() {
+  firebase.auth().signOut().then(() => {
+    localStorage.removeItem('router_user_role');
+    Swal.fire({
+      icon: 'success',
+      title: 'ออกจากระบบสำเร็จ',
+      text: 'คุณได้ออกจากระบบเรียบร้อย',
+      timer: 1200,
+      showConfirmButton: false
+    });
+    setTimeout(() => {
+      window.location.href = 'login.html';
+    }, 1200);
+  }).catch((error) => {
+    console.error('Sign out error:', error);
+    Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+  });
+}
+
+// ฟังก์ชันตรวจสอบสถานะการล็อกอินล่วงหน้า
+function checkAuthStatus() {
+  const storedUser = localStorage.getItem('router_user_role');
+  if (storedUser) {
+    const userData = JSON.parse(storedUser);
+    // ถ้ามีข้อมูลผู้ใช้แล้ว ให้ไปยังหน้าหลักทันที
+    setTimeout(() => {
+      window.location.href = 'index.html';
+    }, 500);
+  }
+}
+
+// ตั้งค่า event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  // ตรวจสอบสถานะก่อนแสดงหน้า
+  checkAuthStatus();
+
+  // จัดการการส่งฟอร์มล็อกอิน
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', handleLogin);
+  }
+
+});
+
+// รับการกด Enter ในช่องรหัสผ่านเพื่อส่งฟอร์ม
+document.getElementById('password')?.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('loginForm')?.requestSubmit();
+  }
+});
+</script>
+
+<!-- ================= SVG ICON LIBRARY ================= -->
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <symbol id="i-router" viewBox="0 0 48 48">
+      <path d="M13 24.5a9.5 9.5 0 0 1 19 0"/>
+      <path d="M8 18.5a16 16 0 0 1 29 0"/>
+      <rect x="6" y="30" width="36" height="11" rx="3.2"/>
+      <path d="M16 35.5h.01"/><path d="M22 35.5h.01"/><path d="M28 35.5h.01"/>
+    </symbol>
+    <symbol id="i-lock-open" viewBox="0 0 24 24">
+      <rect x="4.4" y="10.4" width="15.2" height="10.2" rx="2.2"/>
+      <path d="M8 10.4V7.8a4 4 0 0 1 7.6-1.8"/>
+      <path d="M12 14.4v2.4"/>
+    </symbol>
+  </defs>
+</svg>
+
+</body>
+</html>

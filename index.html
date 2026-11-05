@@ -237,6 +237,47 @@ body::before{
 }
 .pill .ico{ width: 14px; height: 14px; color: #10b981; }
 
+/* ---------- แถบผู้ใช้ (ล็อกอินแล้ว) ---------- */
+.userchip{
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--txt-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.userchip .ico{ width: 15px; height: 15px; color: var(--m1); }
+.userchip-name{ max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.userchip-out{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 999px;
+  font-family: var(--font);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #fff;
+  background: #dc2626;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter .2s ease, transform .2s ease;
+}
+.userchip-out .ico{ width: 13px; height: 13px; color: #fff; }
+.userchip-out:hover{ filter: brightness(1.12); }
+.userchip-out:active{ transform: scale(.97); }
+.userchip-out:focus-visible{
+  outline: 3px solid rgba(15,23,42,.55);
+  outline-offset: 2px;
+}
+
 /* =========================================================
    Main
    ========================================================= */
@@ -450,6 +491,23 @@ a:focus-visible{
 
 <body>
 
+<!-- =========================================================
+     AUTH GATE — ล็อกอินก่อนเข้าทุกหน้า
+     ตรวจสอบว่ามีผู้ใช้ล็อกอินแล้วหรือยัง ถ้าไม่ใช่ → redirect login.html
+     ========================================================= -->
+<script>
+(function () {
+  'use strict';
+  // ตรวจสอบสถานะการล็อกอินล่วงหน้า
+  var stored = localStorage.getItem('router_user_role');
+  if (!stored) {
+    // ไม่มีผู้ใช้ล็อกอิน → ไปหน้า login.html ทันที
+    window.location.href = 'login.html';
+    return;
+  }
+})();
+</script>
+
 <!-- ================= SVG ICON LIBRARY ================= -->
 <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs>
@@ -476,6 +534,15 @@ a:focus-visible{
       <path d="M8 10.4V7.8a4 4 0 0 1 7.6-1.8"/>
       <path d="M12 14.4v2.4"/>
     </symbol>
+    <symbol id="i-user" viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="3.6"/>
+      <path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/>
+    </symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24">
+      <rect x="4.4" y="10.4" width="15.2" height="10.2" rx="2.2"/>
+      <path d="M8 10.4V7.8a4 4 0 0 1 8 0v2.6"/>
+      <path d="M12 14.4v2.4"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -489,10 +556,15 @@ a:focus-visible{
         <em>Problem Reporting</em>
       </span>
     </a>
-    <span class="pill">
-      <svg class="ico" aria-hidden="true"><use href="#i-lock-open" xlink:href="#i-lock-open"></use></svg>
-      <span>เปิดใช้งานได้ทันที</span>
-    </span>
+    <!-- แถบผู้ใช้: แสดงชื่อเมื่อล็อกอินอยู่ / ปุ่มล็อกเอาต์ -->
+    <div class="userchip" id="userchip" style="display:none">
+      <svg class="ico" aria-hidden="true"><use href="#i-user" xlink:href="#i-user"></use></svg>
+      <span class="userchip-name" id="userchip-name">ผู้ใช้งาน</span>
+      <button class="userchip-out" id="logoutBtn" type="button" title="ออกจากระบบ">
+        <svg class="ico" aria-hidden="true"><use href="#i-lock" xlink:href="#i-lock"></use></svg>
+        <span>ออกจากระบบ</span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -539,6 +611,73 @@ a:focus-visible{
   (function () {
     var el = document.getElementById('year');
     if (el) el.textContent = new Date().getFullYear();
+  })();
+</script>
+
+<script>
+  /* =========================================================
+     USER CHIP + LOGOUT — แสดงข้อมูลผู้ใช้ที่ล็อกอินอยู่
+     อ่านจาก localStorage: router_user_role
+     ========================================================= */
+  (function () {
+    'use strict';
+
+    var ROLE_TH = {
+      admin: 'ผู้ดูแลระบบ',
+      supervisor: 'หัวหน้างาน',
+      operator: 'ผู้บันทึก',
+      viewer: 'ผู้ดูข้อมูล'
+    };
+
+    function getUser() {
+      try {
+        var raw = localStorage.getItem('router_user_role');
+        return raw ? JSON.parse(raw) : null;
+      } catch (_) { return null; }
+    }
+
+    function renderUserChip() {
+      var user = getUser();
+      var chip = document.getElementById('userchip');
+      if (!chip) return;
+      if (!user) { chip.style.display = 'none'; return; }
+
+      var nameEl = document.getElementById('userchip-name');
+      var email = user.email || user.uid || 'ผู้ใช้งาน';
+      var role = ROLE_TH[user.role] || user.role || '';
+      if (nameEl) nameEl.textContent = role ? (email + ' · ' + role) : email;
+
+      // คำนวณตัวอักษรอีเมลยาวเกินไป — ตัดสั้นให้พอดี
+      if (email.length > 34) email = email.slice(0, 31) + '…';
+      chip.style.display = 'inline-flex';
+    }
+
+    function setupLogout() {
+      var btn = document.getElementById('logoutBtn');
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        // ล้างข้อมูลผู้ใช้ในเครื่อง แล้วกลับหน้าล็อกอิน
+        localStorage.removeItem('router_user_role');
+        // ถ้ามี Firebase ให้ออกจากเซสชันด้วย (ไม่ block ถ้าไม่พร้อม)
+        try {
+          if (typeof firebase !== 'undefined' && firebase.auth) {
+            firebase.auth().signOut().catch(function () { /* ข้าม */ });
+          }
+        } catch (_) { /* ข้าม */ }
+        window.location.href = 'login.html';
+      });
+    }
+
+    // รันเมื่อ DOM พร้อม
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        renderUserChip();
+        setupLogout();
+      });
+    } else {
+      renderUserChip();
+      setupLogout();
+    }
   })();
 </script>
 
